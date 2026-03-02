@@ -1,91 +1,151 @@
 import Dagre from '@dagrejs/dagre';
+import { Position } from '@xyflow/react';
 
+/**
+ * Layout Options
+ *
+ * Inspired by the XYFlow official Dagre example (xyflow-branching-tree reference):
+ * - Keep config minimal — just rankdir, nodesep, ranksep
+ * - Return sourcePosition/targetPosition per node so edges know which handles to use
+ * - Complex options (ranker, align, acyclicer) are available but shouldn't be defaults
+ */
 export interface LayoutOptions {
-    /** Graph direction. 'LR' = left→right (default). 'TB' = top→bottom. */
-    direction?: 'LR' | 'TB';
-    /** World-space point to centre the laid-out graph around. */
-    center?: { x: number; y: number };
-    /** Node width in px. ReactFlow nodes are 300px wide. */
+    direction?: 'TB' | 'BT' | 'LR' | 'RL';
+    ranker?: 'network-simplex' | 'tight-tree' | 'longest-path';
+    acyclicer?: 'greedy' | undefined;
+    align?: 'UL' | 'UR' | 'DL' | 'DR';
+    nodesep?: number;
+    ranksep?: number;
     nodeWidth?: number;
-    /** Node height estimate in px. Collapsed nodes are ~120px. */
     nodeHeight?: number;
-    /** Dagre: vertical distance between ranks (columns in LR mode). */
-    rankSep?: number;
-    /** Dagre: horizontal distance between nodes in the same rank. */
-    nodeSep?: number;
+    center?: { x: number; y: number };
+    semanticWeighting?: boolean;
+}
+
+// Semantic edge weight table (EdgeConfig.weight / minlen from dagre.d.ts)
+const EDGE_WEIGHTS: Record<string, { weight: number; minlen: number }> = {
+    prerequisite: { weight: 5, minlen: 1 },
+    supports: { weight: 3, minlen: 1 },
+    refines: { weight: 3, minlen: 1 },
+    extends: { weight: 2, minlen: 1 },
+    contradicts: { weight: 1, minlen: 2 },
+};
+
+export interface NodeDimensions {
+    [nodeId: string]: { width: number; height: number };
+}
+
+export interface LayoutEdge {
+    source: string;
+    target: string;
+    relationType?: string;
+}
+
+// What we return per node — matches the reference pattern
+export interface LayoutNodeResult {
+    x: number;
+    y: number;
+    sourcePosition: Position;
+    targetPosition: Position;
+    rank?: number;
 }
 
 /**
- * Runs the Dagre Sugiyama layout algorithm on a set of node IDs and edges.
+ * Dagre layout — returns positions AND sourcePosition/targetPosition per node.
  *
- * Returns a map of  nodeId → { x, y }  where (x, y) is the ReactFlow
- * top-left corner position of each node (NOT the Dagre centre).
+ * Key insight from the xyflow-branching-tree reference (./src/App.tsx):
+ *   The reference sets sourcePosition/targetPosition on every node based on
+ *   direction, so edges know which handles to connect through. Without this,
+ *   edges pick arbitrary handles making the tree look messy even when the
+ *   underlying positions are correct.
  *
- * Intentionally type-agnostic so it can be called from:
- *  - App.tsx  (with real AppNode IDs and AppEdge source/target)
- *  - cli.ts   (with tempIds and { from, to } pairs re-mapped by the caller)
+ *   TB: source=Bottom, target=Top   (edges flow downward)
+ *   LR: source=Right,  target=Left  (edges flow rightward)
  */
 export function applyDagreLayout(
     nodeIds: string[],
-    edges: { source: string; target: string }[],
+    edges: LayoutEdge[],
     options: LayoutOptions = {},
-): Record<string, { x: number; y: number }> {
+    dimensions: NodeDimensions = {}
+): Record<string, LayoutNodeResult> {
     const {
-        direction = 'LR',
-        center = { x: 0, y: 0 },
+        direction = 'TB',
+        nodesep = 80,
+        ranksep = 160,
         nodeWidth = 300,
         nodeHeight = 120,
-        rankSep = 220,
-        nodeSep = 100,
+        center = { x: 0, y: 0 },
+        semanticWeighting = false,
+        // Advanced — only set if explicitly provided
+        ranker,
+        acyclicer,
+        align,
     } = options;
 
-    if (!nodeIds.length) return {};
+    const isHorizontal = direction === 'LR' || direction === 'RL';
 
-    const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-    g.setGraph({
+    // Source/target positions derived from direction — mirrors the reference exactly
+    const sourcePosition: Position = isHorizontal ? Position.Right : Position.Bottom;
+    const targetPosition: Position = isHorizontal ? Position.Left : Position.Top;
+
+    // Fresh graph every call — no stale state
+    const g = new Dagre.graphlib.Graph();
+    g.setDefaultEdgeLabel(() => ({}));
+
+    // Only include advanced options when explicitly set
+    const graphConfig: Record<string, unknown> = {
         rankdir: direction,
-        ranksep: rankSep,
-        nodesep: nodeSep,
+        nodesep,
+        ranksep,
         marginx: 40,
         marginy: 40,
+    };
+    if (ranker) graphConfig.ranker = ranker;
+    if (acyclicer) graphConfig.acyclicer = acyclicer;
+    if (align) graphConfig.align = align;
+
+    g.setGraph(graphConfig);
+
+    nodeIds.forEach(id => {
+        const dim = dimensions[id] || { width: nodeWidth, height: nodeHeight };
+        g.setNode(id, { width: dim.width, height: dim.height });
     });
 
-    const idSet = new Set(nodeIds);
-    nodeIds.forEach(id => g.setNode(id, { width: nodeWidth, height: nodeHeight }));
-    edges.forEach(e => {
-        if (idSet.has(e.source) && idSet.has(e.target)) {
-            g.setEdge(e.source, e.target);
-        }
+    edges.forEach(edge => {
+        const weights = semanticWeighting && edge.relationType
+            ? (EDGE_WEIGHTS[edge.relationType] ?? { weight: 1, minlen: 1 })
+            : { weight: 1, minlen: 1 };
+        g.setEdge(edge.source, edge.target, { weight: weights.weight, minlen: weights.minlen });
     });
 
     Dagre.layout(g);
 
-    // Compute the bounding-box centre of the laid-out graph so we can
-    // re-centre the whole thing onto the requested `center` point.
-    const xs: number[] = [];
-    const ys: number[] = [];
+    // Bounding box for centering
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
     nodeIds.forEach(id => {
         const n = g.node(id);
-        if (n) { xs.push(n.x); ys.push(n.y); }
+        minX = Math.min(minX, n.x - n.width / 2);
+        maxX = Math.max(maxX, n.x + n.width / 2);
+        minY = Math.min(minY, n.y - n.height / 2);
+        maxY = Math.max(maxY, n.y + n.height / 2);
     });
 
-    if (!xs.length) return {};
+    const gW = maxX - minX;
+    const gH = maxY - minY;
 
-    const layoutCx = (Math.min(...xs) + Math.max(...xs)) / 2;
-    const layoutCy = (Math.min(...ys) + Math.max(...ys)) / 2;
-    const dx = center.x - layoutCx;
-    const dy = center.y - layoutCy;
-
-    const positions: Record<string, { x: number; y: number }> = {};
+    const result: Record<string, LayoutNodeResult> = {};
     nodeIds.forEach(id => {
         const n = g.node(id);
-        if (!n) return;
-        // Dagre gives us the node centre; ReactFlow wants the top-left corner.
-        positions[id] = {
-            x: Math.round(n.x - nodeWidth / 2 + dx),
-            y: Math.round(n.y - nodeHeight / 2 + dy),
+        result[id] = {
+            // Top-left anchor (ReactFlow convention), centered on canvas
+            x: center.x - gW / 2 + (n.x - minX) - n.width / 2,
+            y: center.y - gH / 2 + (n.y - minY) - n.height / 2,
+            sourcePosition,
+            targetPosition,
+            rank: (n as any).rank,
         };
     });
 
-    return positions;
+    return result;
 }

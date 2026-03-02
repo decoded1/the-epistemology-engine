@@ -430,16 +430,23 @@ Rules:
         let centerX = 0, centerY = 0;
         if (existingNodes.length > 0) {
           const maxX = Math.max(...existingNodes.map((n: any) => (n.position?.x ?? 0) + 300));
-          const avgY = existingNodes.reduce((sum: number, n: any) => sum + (n.position?.y ?? 0), 0) / existingNodes.length;
-          centerX = maxX + 900;
+          const avgY = existingNodes.reduce((sum: number, n: any) => sum + (n.position?.y ?? 0) + 60, 0) / existingNodes.length;
+          centerX = maxX + 400; // Smaller offset for cluster
           centerY = avgY;
         }
 
-        // Dagre layout — same utility used by App.tsx handleScaffold
+        // Dagre layout — TB direction, wider spacing for epistemological hierarchy
         const positions = applyDagreLayout(
           result.nodes.map((n: any) => n.tempId),
-          result.edges.map((e: any) => ({ source: e.from, target: e.to })),
-          { direction: 'LR', center: { x: centerX, y: centerY } },
+          result.edges.map((e: any) => ({ source: e.from, target: e.to, relationType: e.relationType })),
+          {
+            direction: 'TB',
+            ranker: 'network-simplex',
+            nodesep: 100,
+            ranksep: 160,
+            semanticWeighting: true,
+            center: { x: centerX, y: centerY }
+          },
         );
 
         const idMap: Record<string, string> = {};

@@ -5,9 +5,11 @@ import {
     applyEdgeChanges,
     Connection,
     EdgeChange,
-    NodeChange
+    NodeChange,
+    Position,
 } from '@xyflow/react';
 import { AppNode, AppEdge, Excerpt, Source, AppNodeData } from '../types';
+import type { LayoutNodeResult } from '../lib/layout';
 
 const API_URL = 'http://localhost:3001/api';
 
@@ -28,7 +30,7 @@ interface GraphState {
     deleteNodes: (ids: string[]) => void;
     deleteEdges: (ids: string[]) => void;
     setDockOpen: (isOpen: boolean) => void;
-    repositionNodes: (positions: Record<string, { x: number; y: number }>) => void;
+    repositionNodes: (positions: Record<string, { x: number; y: number; sourcePosition?: Position; targetPosition?: Position }>) => void;
     assignExcerpt: (excerptId: string, nodeId: string) => void;
     dismissExcerpt: (excerptId: string) => void;
 
@@ -153,11 +155,18 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         set({ isDockOpen: isOpen });
     },
 
-    repositionNodes: (positions: Record<string, { x: number; y: number }>) => {
-        const newNodes = get().nodes.map(n => ({
-            ...n,
-            position: positions[n.id] ?? n.position,
-        }));
+    repositionNodes: (positions: Record<string, { x: number; y: number; sourcePosition?: Position; targetPosition?: Position }>) => {
+        const newNodes = get().nodes.map(n => {
+            const pos = positions[n.id];
+            if (!pos) return n;
+            return {
+                ...n,
+                position: { x: pos.x, y: pos.y },
+                // Apply direction-aware handle positions from layout (reference pattern)
+                ...(pos.sourcePosition ? { sourcePosition: pos.sourcePosition } : {}),
+                ...(pos.targetPosition ? { targetPosition: pos.targetPosition } : {}),
+            };
+        });
         set({ nodes: newNodes });
         // Persist every repositioned node to SQLite
         newNodes.forEach(node => {

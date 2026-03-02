@@ -4,12 +4,13 @@ import { EpistemologyGraph } from './components/graph/EpistemologyGraph';
 import { Console } from './components/panels/Console';
 import { Dock } from './components/panels/Dock';
 import { EmptyState } from './components/panels/EmptyState';
+import { LayoutPanel } from './components/panels/LayoutPanel';
 import { ZoomIndicator } from './components/ui/ZoomIndicator';
 import { ToastProps } from './components/ui/Toast';
 import { useGraphStore } from './store/useGraphStore';
 import { aiEngine } from './services/aiEngine';
 import { AppNodeType, SemanticRelationType, ConceptNodeData, ClaimNodeData, Source } from './types';
-import { applyDagreLayout } from './lib/layout';
+import { applyDagreLayout, LayoutOptions } from './lib/layout';
 
 
 export default function App() {
@@ -23,6 +24,8 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDraggingFromDock, setIsDraggingFromDock] = useState(false);
   const [isFileDraggingOver, setIsFileDraggingOver] = useState(false);
+  const [snapToGrid, setSnapToGrid] = useState(true);
+  const [snapGrid, setSnapGrid] = useState<[number, number]>([20, 20]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
@@ -162,19 +165,7 @@ export default function App() {
 
       // ── layout command ────────────────────────────────────────────────────
       if (lowerCmd === 'layout') {
-        if (nodes.length === 0) {
-          setToast({ message: 'No nodes on canvas to layout.', type: 'info' });
-          return;
-        }
-        const cx = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
-        const cy = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
-        const positions = applyDagreLayout(
-          nodes.map(n => n.id),
-          edges.map(e => ({ source: e.source, target: e.target })),
-          { direction: 'LR', center: { x: cx, y: cy } },
-        );
-        repositionNodes(positions);
-        setToast({ message: `Layout applied · ${nodes.length} nodes re-arranged.`, type: 'success' });
+        applyLayout();
         return;
       }
 
@@ -258,17 +249,24 @@ export default function App() {
         cx = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
         cy = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
       } else {
-        const maxX = Math.max(...nodes.map(n => n.position.x + 300));
-        const avgY = nodes.reduce((sum, n) => sum + n.position.y, 0) / nodes.length;
-        cx = maxX + 900;
+        const maxX = Math.max(...nodes.map(n => n.position.x + (n.measured?.width ?? 300)));
+        const avgY = nodes.reduce((sum, n) => sum + n.position.y + ((n.measured?.height ?? 120) / 2), 0) / nodes.length;
+        cx = maxX + 400; // Shift cluster to the right
         cy = avgY;
       }
 
-      // Dagre layout — topological, not geometric
+      // Dagre layout — superior topological engine with semantic weighting
       const positions = applyDagreLayout(
         result.nodes.map((n: any) => n.tempId),
-        result.edges.map((e: any) => ({ source: e.from, target: e.to })),
-        { direction: 'LR', center: { x: cx, y: cy } },
+        result.edges.map((e: any) => ({ source: e.from, target: e.to, relationType: e.relationType })),
+        {
+          direction: 'TB',
+          ranker: 'network-simplex',
+          nodesep: 100,
+          ranksep: 160,
+          semanticWeighting: true,
+          center: { x: cx, y: cy }
+        },
       );
 
       // Build real IDs and create nodes
@@ -329,6 +327,30 @@ export default function App() {
     uploadEpub(file);
   };
 
+  // ── Shared layout runner used by console command + LayoutPanel ──────────
+  const applyLayout = (opts: LayoutOptions = {}) => {
+    if (nodes.length === 0) {
+      setToast({ message: 'No nodes on canvas to layout.', type: 'info' });
+      return;
+    }
+    const cx = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
+    const cy = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+    const dimensions: Record<string, { width: number; height: number }> = {};
+    nodes.forEach(n => {
+      if (n.measured) {
+        dimensions[n.id] = { width: n.measured.width ?? 300, height: n.measured.height ?? 120 };
+      }
+    });
+    const positions = applyDagreLayout(
+      nodes.map(n => n.id),
+      edges.map(e => ({ source: e.source, target: e.target, relationType: e.data?.relationType as string | undefined })),
+      { direction: 'TB', ranker: 'network-simplex', nodesep: 100, ranksep: 160, semanticWeighting: true, ...opts, center: { x: cx, y: cy } },
+      dimensions
+    );
+    repositionNodes(positions);
+    setToast({ message: `Layout applied · ${nodes.length} nodes re-arranged.`, type: 'success' });
+  };
+
   const { onNodesChange } = useGraphStore.getState();
 
   return (
@@ -343,7 +365,11 @@ export default function App() {
         />
         <EmptyState isVisible={nodes.length === 0} />
 
-        <EpistemologyGraph onViewportChange={setViewport} />
+        <EpistemologyGraph
+          onViewportChange={setViewport}
+          snapToGrid={snapToGrid}
+          snapGrid={snapGrid}
+        />
 
         <Dock
           selectedNodes={selectedNodes}
@@ -366,6 +392,14 @@ export default function App() {
         />
 
         <ZoomIndicator zoom={viewport.zoom} />
+
+        <LayoutPanel
+          onApply={applyLayout}
+          snapToGrid={snapToGrid}
+          onSnapToGridChange={setSnapToGrid}
+          snapGrid={snapGrid}
+          onSnapGridChange={setSnapGrid}
+        />
 
         {isFileDraggingOver && (
           <div className="fixed inset-0 z-[200] pointer-events-none flex items-center justify-center">
