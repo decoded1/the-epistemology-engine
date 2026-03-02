@@ -253,15 +253,16 @@ export default function App() {
         cy = avgY;
       }
 
-      // Dagre layout — superior topological engine
+      // Dagre layout — superior topological engine with semantic weighting
       const positions = applyDagreLayout(
         result.nodes.map((n: any) => n.tempId),
-        result.edges.map((e: any) => ({ source: e.from, target: e.to })),
+        result.edges.map((e: any) => ({ source: e.from, target: e.to, relationType: e.relationType })),
         {
           direction: 'LR',
           ranker: 'network-simplex',
           nodesep: 60,
-          ranksep: 100,
+          ranksep: 120,
+          semanticWeighting: true,
           center: { x: cx, y: cy }
         },
       );
@@ -340,8 +341,8 @@ export default function App() {
     });
     const positions = applyDagreLayout(
       nodes.map(n => n.id),
-      edges.map(e => ({ source: e.source, target: e.target })),
-      { direction: 'LR', ranker: 'network-simplex', nodesep: 60, ranksep: 100, ...opts, center: { x: cx, y: cy } },
+      edges.map(e => ({ source: e.source, target: e.target, relationType: e.data?.relationType as string | undefined })),
+      { direction: 'LR', ranker: 'network-simplex', nodesep: 60, ranksep: 120, semanticWeighting: true, ...opts, center: { x: cx, y: cy } },
       dimensions
     );
     repositionNodes(positions);

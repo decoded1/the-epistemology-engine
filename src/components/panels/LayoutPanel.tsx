@@ -29,8 +29,9 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
     const [direction, setDirection] = useState<Direction>('LR');
     const [ranker, setRanker] = useState<Ranker>('network-simplex');
     const [nodesep, setNodesep] = useState(60);
-    const [ranksep, setRanksep] = useState(100);
-    const [greedy, setGreedy] = useState(true);  // greedy acyclicer
+    const [ranksep, setRanksep] = useState(120);
+    const [greedy, setGreedy] = useState(true);
+    const [semanticWeighting, setSemanticWeighting] = useState(true);
 
     const handleApply = () => {
         onApply({
@@ -39,6 +40,7 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
             nodesep,
             ranksep,
             acyclicer: greedy ? 'greedy' : undefined,
+            semanticWeighting,
         });
     };
 
@@ -92,8 +94,8 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
                                         id={`layout-dir-${d}`}
                                         onClick={() => setDirection(d)}
                                         className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-medium border transition-all cursor-pointer ${direction === d
-                                                ? 'bg-accent-blue-muted border-accent-blue-border text-accent-blue'
-                                                : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
+                                            ? 'bg-accent-blue-muted border-accent-blue-border text-accent-blue'
+                                            : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
                                             }`}
                                     >
                                         {DIRECTION_LABELS[d]}
@@ -114,8 +116,8 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
                                         id={`layout-ranker-${r}`}
                                         onClick={() => setRanker(r)}
                                         className={`w-full text-left px-3 py-2 rounded-lg border transition-all cursor-pointer group ${ranker === r
-                                                ? 'bg-accent-violet-muted border-accent-violet-border'
-                                                : 'bg-bg-elevated border-border-base hover:border-border-focus'
+                                            ? 'bg-accent-violet-muted border-accent-violet-border'
+                                            : 'bg-bg-elevated border-border-base hover:border-border-focus'
                                             }`}
                                     >
                                         <div className={`text-[10px] font-mono font-semibold ${ranker === r ? 'text-accent-violet' : 'text-text-secondary group-hover:text-text-primary'}`}>
@@ -182,11 +184,30 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
                                 id="layout-greedy-toggle"
                                 onClick={() => setGreedy(g => !g)}
                                 className={`relative w-9 h-5 rounded-full border transition-all cursor-pointer ${greedy
-                                        ? 'bg-accent-emerald-muted border-accent-emerald-border'
-                                        : 'bg-bg-elevated border-border-base'
+                                    ? 'bg-accent-emerald-muted border-accent-emerald-border'
+                                    : 'bg-bg-elevated border-border-base'
                                     }`}
                             >
                                 <div className={`absolute top-[3px] w-[13px] h-[13px] rounded-full transition-all ${greedy ? 'left-[18px] bg-accent-emerald' : 'left-[3px] bg-text-dim'
+                                    }`} />
+                            </button>
+                        </div>
+
+                        {/* Semantic Weighting toggle */}
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-[10px] font-mono font-semibold text-text-muted">Semantic Weighting</div>
+                                <div className="text-[9px] text-text-dim mt-0.5">Pulls related nodes together; pushes contradictions apart</div>
+                            </div>
+                            <button
+                                id="layout-semantic-toggle"
+                                onClick={() => setSemanticWeighting(s => !s)}
+                                className={`relative w-9 h-5 rounded-full border transition-all cursor-pointer ${semanticWeighting
+                                        ? 'bg-accent-blue-muted border-accent-blue-border'
+                                        : 'bg-bg-elevated border-border-base'
+                                    }`}
+                            >
+                                <div className={`absolute top-[3px] w-[13px] h-[13px] rounded-full transition-all ${semanticWeighting ? 'left-[18px] bg-accent-blue' : 'left-[3px] bg-text-dim'
                                     }`} />
                             </button>
                         </div>
