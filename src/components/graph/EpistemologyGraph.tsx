@@ -32,10 +32,18 @@ const edgeTypes = {
 const connectionLineStyle = {
     stroke: 'rgba(104, 137, 255, 0.8)',
     strokeWidth: 2,
-    strokeDasharray: '4 4'
+    strokeDasharray: '4 4',
 };
 
 const SNAP: [number, number] = [20, 20];
+
+// ── Double-tap zoom cycling ───────────────────────────────────────────────────
+// Levels: fitView overview → comfortable reading → focused detail → back to fitView
+// Discovered via node_modules: instance.zoomTo(level, { duration }) calls
+// panZoom.scaleTo() which animates. instance.getZoom() reads transform[2].
+const ZOOM_LEVELS = [0.65, 1.0, 1.6] as const;
+const ZOOM_DURATION = 350;
+const FIT_OPTIONS = { padding: 0.12, duration: ZOOM_DURATION, minZoom: 0.1, maxZoom: 1.5 } as const;
 
 interface EpistemologyGraphProps {
     onViewportChange: (viewport: Viewport) => void;
@@ -47,18 +55,40 @@ export function EpistemologyGraph({ onViewportChange, snapToGrid = true, snapGri
     const { nodes, edges, onNodesChange, onEdgesChange, onConnect } = useGraphStore();
     const { getViewport } = useReactFlow();
     const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
+    // Tracks which step of the zoom cycle we're on.
+    // -1 means we're at fitView (overview), 0-N are ZOOM_LEVELS indices.
+    const zoomStepRef = useRef<number>(-1);
 
     const handleMove = useCallback(() => {
         onViewportChange(getViewport());
     }, [getViewport, onViewportChange]);
 
-    // onInit fires when the viewport is ready (line 176-179, component-props.d.ts).
-    // We call fitView after a short delay so async-loaded DB nodes are included.
+    // onInit — fires when viewport is ready (component-props.d.ts line 176).
+    // Async fitView after 150ms covers the DB-fetch delay.
     const handleInit = useCallback((instance: ReactFlowInstance) => {
         rfInstanceRef.current = instance;
         setTimeout(() => {
-            instance.fitView({ padding: 0.12, duration: 400, minZoom: 0.1, maxZoom: 1.5 });
+            instance.fitView(FIT_OPTIONS);
+            zoomStepRef.current = -1;
         }, 150);
+    }, []);
+
+    // Double-tap / double-click on canvas → cycle zoom levels.
+    // At the last level, resets to fitView (overview).
+    const handlePaneDoubleClick = useCallback((_e: React.MouseEvent) => {
+        const instance = rfInstanceRef.current;
+        if (!instance) return;
+
+        const nextStep = zoomStepRef.current + 1;
+
+        if (nextStep >= ZOOM_LEVELS.length) {
+            // Cycled through all levels → back to overview
+            instance.fitView(FIT_OPTIONS);
+            zoomStepRef.current = -1;
+        } else {
+            instance.zoomTo(ZOOM_LEVELS[nextStep], { duration: ZOOM_DURATION });
+            zoomStepRef.current = nextStep;
+        }
     }, []);
 
     return (
@@ -73,6 +103,11 @@ export function EpistemologyGraph({ onViewportChange, snapToGrid = true, snapGri
                 onConnect={onConnect}
                 onMove={handleMove}
                 onInit={handleInit}
+                onPaneClick={undefined}
+                // Disable XYFlow's default double-click zoom-at-cursor so our
+                // cycling handler has full control.
+                zoomOnDoubleClick={false}
+                onDoubleClick={handlePaneDoubleClick}
                 connectionMode={ConnectionMode.Loose}
                 snapToGrid={snapToGrid}
                 snapGrid={snapGrid}
