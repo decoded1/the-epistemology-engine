@@ -76,7 +76,8 @@ export function LayoutPanel({
                 <button
                     id="layout-panel-toggle"
                     onClick={() => setIsExpanded(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-bg-surface border border-border-subtle rounded-full cursor-pointer shadow-[0_4px_16px_rgba(0,0,0,0.4),0_0_0_1px_rgba(0,0,0,0.15)] hover:bg-bg-elevated hover:border-border-focus hover:-translate-y-[1px] transition-all group"
+                    className="flex items-center gap-2 px-3 h-[32px] bg-bg-surface border border-border-subtle rounded-full cursor-pointer shadow-[0_4px_16px_rgba(0,0,0,0.4),0_0_0_1px_rgba(0,0,0,0.15)] hover:bg-bg-elevated hover:border-border-focus hover:-translate-y-[1px] transition-all group"
+
                 >
                     <LayoutGrid size={13} className="text-text-dim group-hover:text-accent-blue transition-colors" />
                     <span className="text-[11px] font-medium text-text-muted group-hover:text-text-secondary transition-colors">

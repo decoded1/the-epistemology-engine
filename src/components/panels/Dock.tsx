@@ -82,12 +82,12 @@ export function Dock({ selectedNodes, onDraggingChange }: DockProps) {
     if (!isOpen) {
         return (
             <div
-                className="fixed z-50 flex items-center gap-2 px-3 py-1.5 bg-bg-surface border border-border-subtle rounded-full cursor-pointer shadow-[0_4px_16px_rgba(0,0,0,0.4),0_0_0_1px_rgba(0,0,0,0.15)] hover:bg-bg-elevated hover:border-border-focus hover:-translate-y-[1px] transition-all group animate-fade-in-up"
+                className="fixed z-50 flex items-center gap-2 px-3 h-[32px] bg-bg-surface border border-border-subtle rounded-full cursor-pointer shadow-[0_4px_16px_rgba(0,0,0,0.4),0_0_0_1px_rgba(0,0,0,0.15)] hover:bg-bg-elevated hover:border-border-focus hover:-translate-y-[1px] transition-all group animate-fade-in-up"
                 style={{ bottom: '10px', left: '10px' }}
-
                 onClick={() => setIsOpen(true)}
             >
-                <div className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold font-mono border ${excerpts.length > 0 ? 'bg-accent-amber-muted border-accent-amber-border text-accent-amber animate-pulse-ring' : 'bg-bg-elevated border-border-base text-text-dim'}`}>
+                <div className={`w-4 h-4 flex items-center justify-center rounded-full text-[9px] font-bold font-mono border ${excerpts.length > 0 ? 'bg-accent-amber-muted border-accent-amber-border text-accent-amber animate-pulse-ring' : 'bg-bg-elevated border-border-base text-text-dim'}`}>
+
                     {excerpts.length}
                 </div>
                 <span className="text-[11px] font-medium text-text-muted group-hover:text-text-secondary transition-colors">unsorted</span>

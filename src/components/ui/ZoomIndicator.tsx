@@ -28,9 +28,10 @@ export function ZoomIndicator({ zoom }: ZoomIndicatorProps) {
 
     return (
         <div
-            className={`pointer-events-none fixed bottom-6 right-6 z-50 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'
+            className={`pointer-events-none fixed bottom-[10px] right-[10px] z-50 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'
                 }`}
         >
+
             <div className="bg-bg-surface border border-border-base rounded-full px-2 py-0.5 text-[10px] font-mono text-text-dim shadow-sm">
                 {zoomPercentage}%
             </div>
