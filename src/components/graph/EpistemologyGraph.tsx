@@ -43,7 +43,7 @@ const SNAP: [number, number] = [20, 20];
 // ── Zoom cycling ──────────────────────────────────────────────────────────────
 const ZOOM_LEVELS = [1.0, 1.6] as const;
 const ZOOM_DURATION = 350;
-const SIDE_PAD = 40;   // left / right margin in px
+const SIDE_PAD = 20;   // left / right margin in px
 const TOP_PAD = 40;   // top margin in px
 const BOTTOM_PAD = 20;   // gap between nodes and console top in px
 
