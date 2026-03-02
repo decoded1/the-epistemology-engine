@@ -49,10 +49,10 @@ const ZOOM_DURATION = 350;
 // height=131px, positioned at bottom:24px → occupies ~155px from bottom.
 // We give 160px bottom clearance so nodes never hide behind it.
 const FIT_PADDING = {
-    top: 40,
-    right: 40,
-    bottom: 160,   // console bar clearance
-    left: 40,
+    top: '40px',
+    right: '40px',
+    bottom: '160px',  // console bar clearance (bar=131px + gap=24px + margin)
+    left: '40px',
 } as const;
 
 const FIT_OPTIONS = { padding: FIT_PADDING, duration: ZOOM_DURATION, minZoom: 0.1, maxZoom: 1.5 } as const;
