@@ -8,6 +8,8 @@ import {
     ConnectionMode,
     useReactFlow,
     type ReactFlowInstance,
+    getNodesBounds,
+    getViewportForBounds,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -37,26 +39,64 @@ const connectionLineStyle = {
 
 const SNAP: [number, number] = [20, 20];
 
-// ── Double-tap zoom cycling ───────────────────────────────────────────────────
-// Levels: fitView overview → comfortable reading → focused detail → back to fitView
-// Discovered via node_modules: instance.zoomTo(level, { duration }) calls
-// panZoom.scaleTo() which animates. instance.getZoom() reads transform[2].
+// ── Zoom cycling ──────────────────────────────────────────────────────────────
 const ZOOM_LEVELS = [1.0, 1.6] as const;
 const ZOOM_DURATION = 350;
+const SIDE_PAD = 40;   // left / right margin in px
+const TOP_PAD = 40;   // top margin in px
+const BOTTOM_PAD = 40;   // gap between nodes and console top in px
+const MIN_ZOOM = 0.15;
+const MAX_ZOOM = 1.5;
 
-// Asymmetric padding accounts for the fixed console bar at the bottom.
-// Measured live via cx2: console bar top=832px on a 986px viewport,
-// height=131px, positioned at bottom:24px → occupies ~155px from bottom.
-// We give 160px bottom clearance so nodes never hide behind it.
-const FIT_PADDING = {
-    top: '40px',
-    right: '40px',
-    bottom: '160px',  // console bar clearance (bar=131px + gap=24px + margin)
-    left: '40px',
-} as const;
+/**
+ * Reads the console bar's live top position from the DOM.
+ * Falls back to 85% of the viewport height if the element isn't found.
+ */
+function getConsoleTop(): number {
+    const allFixed = Array.from(document.querySelectorAll('[class*="fixed"]')) as HTMLElement[];
+    const consoleEl = allFixed.find(el => !!el.querySelector('input[type="text"]'));
+    return consoleEl
+        ? consoleEl.getBoundingClientRect().top
+        : window.innerHeight * 0.85;
+}
 
-const FIT_OPTIONS = { padding: FIT_PADDING, duration: ZOOM_DURATION, minZoom: 0.1, maxZoom: 1.5 } as const;
+/**
+ * Fits the graph into the usable canvas area (everything above the console bar)
+ * using getViewportForBounds + a live DOM measurement of the console position.
+ *
+ * This gives perfect symmetric margins: SIDE_PAD on left/right,
+ * TOP_PAD from the canvas top, BOTTOM_PAD gap above the console.
+ */
+function fitToUsableArea(instance: ReactFlowInstance, animate = true): void {
+    const nodes = instance.getNodes().filter(n => !n.hidden);
+    if (!nodes.length) return;
 
+    const consoleTop = getConsoleTop();
+
+    // Usable rectangle: full width minus side pads, height from top to console-gap
+    const usableW = window.innerWidth - SIDE_PAD * 2;
+    const usableH = consoleTop - TOP_PAD - BOTTOM_PAD;
+
+    const bounds = getNodesBounds(nodes);
+    if (!bounds.width || !bounds.height) return;
+
+    // getViewportForBounds centres the graph within (usableW × usableH)
+    // with an additional 5% internal padding so nodes aren't flush to the edges.
+    const { x, y, zoom } = getViewportForBounds(
+        bounds,
+        usableW,
+        usableH,
+        MIN_ZOOM,
+        MAX_ZOOM,
+        0.05
+    );
+
+    // Shift by SIDE_PAD / TOP_PAD so the usable area starts at (40, 40) on screen.
+    instance.setViewport(
+        { x: x + SIDE_PAD, y: y + TOP_PAD, zoom },
+        { duration: animate ? ZOOM_DURATION : 0 }
+    );
+}
 
 interface EpistemologyGraphProps {
     onViewportChange: (viewport: Viewport) => void;
@@ -68,26 +108,24 @@ export function EpistemologyGraph({ onViewportChange, snapToGrid = true, snapGri
     const { nodes, edges, onNodesChange, onEdgesChange, onConnect } = useGraphStore();
     const { getViewport } = useReactFlow();
     const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
-    // Tracks which step of the zoom cycle we're on.
-    // -1 means we're at fitView (overview), 0-N are ZOOM_LEVELS indices.
+    // -1 = at overview, 0-N = ZOOM_LEVELS index
     const zoomStepRef = useRef<number>(-1);
 
     const handleMove = useCallback(() => {
         onViewportChange(getViewport());
     }, [getViewport, onViewportChange]);
 
-    // onInit — fires when viewport is ready (component-props.d.ts line 176).
-    // Async fitView after 150ms covers the DB-fetch delay.
+    // onInit — fires when viewport is ready.
+    // We delay 200ms to allow the DB-fetch to populate nodes before measuring.
     const handleInit = useCallback((instance: ReactFlowInstance) => {
         rfInstanceRef.current = instance;
         setTimeout(() => {
-            instance.fitView(FIT_OPTIONS);
+            fitToUsableArea(instance);
             zoomStepRef.current = -1;
-        }, 150);
+        }, 200);
     }, []);
 
-    // Double-tap / double-click on canvas → cycle zoom levels.
-    // At the last level, resets to fitView (overview).
+    // Double-click on canvas → cycle zoom levels → back to overview.
     const handlePaneDoubleClick = useCallback((_e: React.MouseEvent) => {
         const instance = rfInstanceRef.current;
         if (!instance) return;
@@ -95,8 +133,7 @@ export function EpistemologyGraph({ onViewportChange, snapToGrid = true, snapGri
         const nextStep = zoomStepRef.current + 1;
 
         if (nextStep >= ZOOM_LEVELS.length) {
-            // Cycled through all levels → back to overview
-            instance.fitView(FIT_OPTIONS);
+            fitToUsableArea(instance);
             zoomStepRef.current = -1;
         } else {
             instance.zoomTo(ZOOM_LEVELS[nextStep], { duration: ZOOM_DURATION });
@@ -117,15 +154,11 @@ export function EpistemologyGraph({ onViewportChange, snapToGrid = true, snapGri
                 onMove={handleMove}
                 onInit={handleInit}
                 onPaneClick={undefined}
-                // Disable XYFlow's default double-click zoom-at-cursor so our
-                // cycling handler has full control.
                 zoomOnDoubleClick={false}
                 onDoubleClick={handlePaneDoubleClick}
                 connectionMode={ConnectionMode.Loose}
                 snapToGrid={snapToGrid}
                 snapGrid={snapGrid}
-                fitView
-                fitViewOptions={FIT_OPTIONS}
                 selectionOnDrag
                 panOnScroll
                 selectionMode={SelectionMode.Partial}
