@@ -1,12 +1,26 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Loader2, X, ArrowRight, BookOpen, Database, PlaySquare } from 'lucide-react';
+import { Loader2, X, ArrowRight, BookOpen, Database, PlaySquare, Sparkles } from 'lucide-react';
 import { AppNode, AppNodeType, SemanticRelationType, Source } from '../../types';
 import { Toast, ToastProps } from '../ui/Toast';
+import type { Suggestion } from '../../App';
+
+// ── Relation type badge colours ───────────────────────────────────────────────
+const REL_COLORS: Record<string, string> = {
+    supports: 'bg-accent-emerald-muted border-accent-emerald-border text-accent-emerald',
+    contradicts: 'bg-accent-red-muted    border-accent-red-border    text-accent-red',
+    refines: 'bg-accent-amber-muted  border-accent-amber-border  text-accent-amber',
+    prerequisite: 'bg-accent-violet-muted border-accent-violet-border text-accent-violet',
+    extends: 'bg-accent-blue-muted   border-accent-blue-border   text-accent-blue',
+};
 
 interface ConsoleProps {
     selectedNodes: AppNode[];
     onCommand: (cmd: string, edgeType?: SemanticRelationType, scope?: Source | null) => void;
     onNodeCreate: (type: AppNodeType, title: string) => void;
+    onSuggest: (query: string) => Promise<void>;
+    suggestions: Suggestion[];
+    onAcceptSuggestion: (s: Suggestion) => void;
+    onDismissSuggestions: () => void;
     onDeselect: (id: string) => void;
     onClearSelection: () => void;
     isLoading: boolean;
@@ -19,6 +33,10 @@ export function Console({
     selectedNodes,
     onCommand,
     onNodeCreate,
+    onSuggest,
+    suggestions,
+    onAcceptSuggestion,
+    onDismissSuggestions,
     onDeselect,
     onClearSelection,
     isLoading,
@@ -29,7 +47,6 @@ export function Console({
     const [input, setInput] = useState('');
     const [isFocused, setIsFocused] = useState(false);
     const [edgeType, setEdgeType] = useState<SemanticRelationType>('supports');
-
     const [activeScope, setActiveScope] = useState<Source | null>(null);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [filteredSources, setFilteredSources] = useState<Source[]>(sources);
@@ -38,8 +55,19 @@ export function Console({
     const inputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
+    // Detect if query looks like a suggestion request when 1 node is selected
+    const SUGGEST_PATTERN = /\b(suggest|expand|what|add|more|other|idea|propose|give me|find)\b/i;
+    const isSuggestIntent = selectedNodes.length === 1 && SUGGEST_PATTERN.test(input);
+
     const handleCommandOrCreation = (trimmedInput: string) => {
         if (!trimmedInput && !activeScope) return;
+
+        // If 1 node selected + query looks like expansion intent → route to suggest
+        if (isSuggestIntent && trimmedInput) {
+            onSuggest(trimmedInput);
+            setInput('');
+            return;
+        }
 
         const nodeTypes = ['concept', 'branch', 'source', 'claim'];
         const createRegex = new RegExp(`^create (${nodeTypes.join('|')}):\\s*(.+)$`, 'i');
@@ -59,35 +87,20 @@ export function Console({
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (isDropdownOpen) {
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setSelectedIndex(prev => Math.min(prev + 1, filteredSources.length - 1));
-                return;
-            }
-            if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setSelectedIndex(prev => Math.max(prev - 1, 0));
-                return;
-            }
+            if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIndex(prev => Math.min(prev + 1, filteredSources.length - 1)); return; }
+            if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIndex(prev => Math.max(prev - 1, 0)); return; }
             if (e.key === 'Enter') {
                 e.preventDefault();
-                if (filteredSources[selectedIndex]) {
-                    setActiveScope(filteredSources[selectedIndex]);
-                    setIsDropdownOpen(false);
-                    setInput('');
-                }
+                if (filteredSources[selectedIndex]) { setActiveScope(filteredSources[selectedIndex]); setIsDropdownOpen(false); setInput(''); }
                 return;
             }
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                setIsDropdownOpen(false);
-                return;
-            }
+            if (e.key === 'Escape') { e.preventDefault(); setIsDropdownOpen(false); return; }
         }
 
         if (e.key === 'Enter') {
             handleCommandOrCreation(input.trim());
         } else if (e.key === 'Escape') {
+            if (suggestions.length > 0) { onDismissSuggestions(); return; }
             setInput('');
             setActiveScope(null);
             setIsDropdownOpen(false);
@@ -115,28 +128,25 @@ export function Console({
         }
     }, [input, sources]);
 
-    // Global escape to clear selection
     useEffect(() => {
         const handleGlobalKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && document.activeElement !== inputRef.current) {
-                onClearSelection();
-            }
+            if (e.key === 'Escape' && document.activeElement !== inputRef.current) onClearSelection();
         };
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
     }, [onClearSelection]);
 
     const placeholder = useMemo(() => {
-        if (activeScope) return "Query to extract from this source...";
-        if (selectedNodes.length === 1) return "Find excerpts, add tags, synthesize, or ask about this node...";
-        if (selectedNodes.length === 2) return "Describe the relationship, or let the engine propose one...";
-        return "scaffold: [topic]  ·  @source [query]  ·  or ask anything...";
+        if (activeScope) return 'Query to extract from this source...';
+        if (selectedNodes.length === 1) return 'Ask about this node, or "suggest contradictions / expansions..."';
+        if (selectedNodes.length === 2) return 'Describe the relationship, or let the engine propose one...';
+        return 'scaffold: [topic]  ·  @source [query]  ·  or ask anything...';
     }, [activeScope, selectedNodes.length]);
 
     return (
         <div ref={containerRef} className="fixed left-1/2 -translate-x-1/2 z-50 w-full max-w-[720px] px-4 flex flex-col gap-2" style={{ bottom: '24px' }}>
 
-            {/* Scope Selection Dropdown */}
+            {/* ── Source Scope Dropdown ─────────────────────────────────────── */}
             {isDropdownOpen && filteredSources.length > 0 && (
                 <div className="absolute bottom-[calc(100%+8px)] left-4 right-4 bg-bg-surface border border-border-subtle rounded-xl shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden max-h-[300px] z-[60]">
                     <div className="px-3 py-2 border-b border-border-subtle bg-bg-elevated/50 text-[10px] uppercase font-mono tracking-wider text-text-dim font-semibold">Select Scope</div>
@@ -160,6 +170,49 @@ export function Console({
                 </div>
             )}
 
+            {/* ── AI Suggestion Tray ────────────────────────────────────────── */}
+            {suggestions.length > 0 && (
+                <div className="flex flex-col gap-2 animate-in slide-in-from-bottom-4 duration-300">
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-1.5">
+                            <Sparkles size={11} className="text-accent-amber" />
+                            <span className="text-[10px] font-mono font-semibold text-text-dim uppercase tracking-wider">
+                                {suggestions.length} suggestion{suggestions.length !== 1 ? 's' : ''} — click to add
+                            </span>
+                        </div>
+                        <button
+                            onClick={onDismissSuggestions}
+                            className="text-text-dim hover:text-text-muted transition-colors cursor-pointer"
+                        >
+                            <X size={12} />
+                        </button>
+                    </div>
+                    {suggestions.map((s, i) => (
+                        <button
+                            key={i}
+                            onClick={() => onAcceptSuggestion(s)}
+                            className="w-full text-left px-4 py-3 bg-bg-surface border border-border-subtle rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-border-focus hover:-translate-y-[1px] hover:shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-all cursor-pointer group"
+                        >
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-[13px] font-semibold text-text-primary group-hover:text-white transition-colors leading-tight">{s.title}</div>
+                                    <div className="text-[11px] text-text-muted mt-0.5 leading-relaxed line-clamp-2">{s.description}</div>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                                    <span className={`px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider rounded-full border ${REL_COLORS[s.relationType] ?? ''}`}>
+                                        {s.relationType}
+                                    </span>
+                                    <span className="px-2 py-0.5 text-[9px] font-mono font-semibold uppercase tracking-wider rounded-full border bg-bg-elevated border-border-base text-text-dim">
+                                        {s.nodeType}
+                                    </span>
+                                </div>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* ── Main Console Shell ────────────────────────────────────────── */}
             <div className="bg-bg-surface border border-border-subtle rounded-2xl shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.03),0_24px_80px_-12px_rgba(0,0,0,0.8),0_0_0_1px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden transition-all">
 
                 {/* Context Strip */}
@@ -171,7 +224,6 @@ export function Console({
                                 const chipBg = isSecond ? 'bg-accent-violet-muted' : 'bg-accent-blue-muted';
                                 const chipBorder = isSecond ? 'border-accent-violet-border' : 'border-accent-blue-border';
                                 const chipText = isSecond ? 'text-accent-violet' : 'text-accent-blue';
-
                                 return (
                                     <React.Fragment key={node.id}>
                                         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${chipBg} ${chipBorder} ${chipText} shadow-sm transition-all`}>
@@ -180,14 +232,11 @@ export function Console({
                                                 <X size={12} />
                                             </button>
                                         </div>
-                                        {idx === 0 && selectedNodes.length === 2 && (
-                                            <ArrowRight size={14} className="text-text-dim mx-1" />
-                                        )}
+                                        {idx === 0 && selectedNodes.length === 2 && <ArrowRight size={14} className="text-text-dim mx-1" />}
                                     </React.Fragment>
                                 );
                             })}
                         </div>
-
                         {selectedNodes.length === 2 && (
                             <div className="flex items-center gap-2 px-2 py-1 bg-bg-surface border border-border-base rounded-lg shadow-sm animate-in zoom-in-95 duration-200">
                                 <span className="text-[9px] font-mono font-bold text-text-dim uppercase tracking-wider">Relationship</span>
@@ -240,6 +289,18 @@ export function Console({
                         className="flex-1 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-dim"
                         disabled={isLoading}
                     />
+
+                    {/* Suggest button shown when 1 node selected + suggest-intent detected */}
+                    {isSuggestIntent && !isLoading && (
+                        <button
+                            onClick={() => { onSuggest(input.trim()); setInput(''); }}
+                            className="flex items-center gap-1.5 px-3 h-[30px] rounded border border-accent-amber-border bg-accent-amber-muted text-accent-amber text-[10px] font-mono font-semibold hover:bg-accent-amber hover:text-black transition-all cursor-pointer shrink-0"
+                        >
+                            <Sparkles size={11} />
+                            Suggest
+                        </button>
+                    )}
+
                     <button
                         onClick={() => handleCommandOrCreation(input.trim())}
                         className="w-[30px] h-[30px] flex items-center justify-center rounded border border-border-base text-text-dim hover:border-accent-blue hover:text-accent-blue hover:bg-accent-blue-muted transition-all cursor-pointer"
@@ -258,9 +319,14 @@ export function Console({
                                 <span className="flex items-center gap-1"><kbd className="px-1 bg-bg-elevated border border-border-base rounded-[3px] text-text-muted">↵</kbd> run</span>
                                 <span className="flex items-center gap-1"><kbd className="px-1 bg-bg-elevated border border-border-base rounded-[3px] text-text-muted">esc</kbd> clear</span>
                             </div>
-                            {selectedNodes.length === 1 && (
+                            {selectedNodes.length === 1 && !isSuggestIntent && (
                                 <span className="text-accent-blue/80 font-medium animate-pulse">
                                     Hold <kbd className="px-1 bg-bg-elevated border border-border-base rounded-[3px]">Shift</kbd> + click another node to create an edge
+                                </span>
+                            )}
+                            {selectedNodes.length === 1 && isSuggestIntent && (
+                                <span className="text-accent-amber/80 font-medium flex items-center gap-1">
+                                    <Sparkles size={10} /> AI will suggest nodes to add
                                 </span>
                             )}
                         </div>

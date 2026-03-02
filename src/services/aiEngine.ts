@@ -159,5 +159,87 @@ Rules:
     });
 
     return response.text || "";
-  }
+  },
+
+  /**
+   * Suggest 3-5 new nodes that could be added to expand the selected node.
+   * Returns structured cards the user can one-click accept into the graph.
+   */
+  async suggestExpansions(
+    query: string,
+    anchorNode: AppNode,
+    allNodes: AppNode[],
+    allEdges: AppEdge[]
+  ): Promise<{
+    suggestions: {
+      title: string;
+      description: string;
+      relationType: SemanticRelationType;
+      nodeType: AppNodeType;
+    }[];
+  }> {
+    const existingTitles = allNodes.map(n => n.data.title).filter(Boolean);
+    const connectedEdges = allEdges.filter(
+      e => e.source === anchorNode.id || e.target === anchorNode.id
+    );
+    const connectedNodes = connectedEdges.map(e => {
+      const otherId = e.source === anchorNode.id ? e.target : e.source;
+      const other = allNodes.find(n => n.id === otherId);
+      return other ? `"${other.data.title}" (${e.data?.relationType ?? 'connected'})` : null;
+    }).filter(Boolean);
+
+    const prompt = `You are an expert knowledge graph assistant for the Epistemology Engine.
+
+The user is exploring the node: "${anchorNode.data.title}" (type: ${anchorNode.type})
+Description: ${anchorNode.data.description ?? 'none'}
+
+Already connected to:
+${connectedNodes.length ? connectedNodes.map(c => `  - ${c}`).join('\n') : '  (no connections yet)'}
+
+User's query: "${query}"
+
+Existing graph nodes (do NOT duplicate these titles): ${existingTitles.join(', ')}
+
+Generate 3 to 5 distinct, intellectually substantive suggestions for NEW nodes that could be added to expand "${anchorNode.data.title}" in the direction the user is asking.
+
+For each suggestion:
+- title: 2–5 words, specific and punchy
+- description: 1 sentence explaining what this node represents
+- relationType: exactly one of "supports", "contradicts", "refines", "prerequisite", "extends"
+  (choose based on how this new node would relate TO the anchor node)
+- nodeType: exactly one of "concept", "branch", "claim"
+  (use "claim" for specific propositions, "branch" for sub-areas, "concept" for ideas/themes)
+
+Be specific to the domain — avoid generic placeholders.`;
+
+    const ai = getAiClient();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            suggestions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  relationType: { type: Type.STRING, enum: ['supports', 'contradicts', 'refines', 'prerequisite', 'extends'] },
+                  nodeType: { type: Type.STRING, enum: ['concept', 'branch', 'claim'] },
+                },
+                required: ['title', 'description', 'relationType', 'nodeType'],
+              },
+            },
+          },
+          required: ['suggestions'],
+        },
+      },
+    });
+
+    return JSON.parse(response.text || '{"suggestions":[]}');
+  },
 };

@@ -12,6 +12,13 @@ import { aiEngine } from './services/aiEngine';
 import { AppNodeType, SemanticRelationType, ConceptNodeData, ClaimNodeData, Source } from './types';
 import { applyDagreLayout, LayoutOptions } from './lib/layout';
 
+export type Suggestion = {
+  title: string;
+  description: string;
+  relationType: SemanticRelationType;
+  nodeType: AppNodeType;
+};
+
 
 export default function App() {
   const { nodes, edges, sources, addNode, addEdges, updateNodeData, repositionNodes, isDockOpen, setDockOpen } = useGraphStore();
@@ -26,6 +33,9 @@ export default function App() {
   const [isFileDraggingOver, setIsFileDraggingOver] = useState(false);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [snapGrid, setSnapGrid] = useState<[number, number]>([20, 20]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestionAnchorId, setSuggestionAnchorId] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
@@ -234,6 +244,59 @@ export default function App() {
     setToast({ message: `Created ${type}: ${title}`, type: 'success' });
   };
 
+  // ── AI suggestion tray ──────────────────────────────────────────────────
+  const handleSuggest = async (query: string) => {
+    if (selectedNodes.length !== 1) return;
+    const anchor = selectedNodes[0];
+    setSuggestions([]);
+    setSuggestionAnchorId(anchor.id);
+    setIsProcessing(true);
+    try {
+      const result = await aiEngine.suggestExpansions(query, anchor, nodes, edges);
+      setSuggestions(result.suggestions ?? []);
+    } catch (err: any) {
+      setToast({ message: err?.message ?? 'Suggestion failed.', type: 'error' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleAcceptSuggestion = (suggestion: Suggestion) => {
+    const anchorNode = nodes.find(n => n.id === suggestionAnchorId);
+    if (!anchorNode) return;
+
+    const id = `n-${Date.now()}`;
+    const x = anchorNode.position.x + 360;
+    const y = anchorNode.position.y + (suggestions.indexOf(suggestion)) * 160;
+
+    const nodeData: any = {
+      title: suggestion.title,
+      description: suggestion.description,
+      expanded: false,
+      tags: ['#suggested'],
+    };
+    if (suggestion.nodeType === 'claim') {
+      nodeData.conviction = 50;
+      nodeData.supportingEvidence = [];
+      nodeData.counterEvidence = [];
+    } else {
+      nodeData.references = { literature: [], media: [] };
+    }
+
+    addNode({ id, type: suggestion.nodeType, position: { x, y }, selected: false, data: nodeData } as any);
+    addEdges([{
+      id: `e-${Date.now()}`,
+      source: suggestionAnchorId!,
+      target: id,
+      type: 'semantic' as const,
+      data: { relationType: suggestion.relationType },
+    }]);
+
+    setSuggestions(prev => prev.filter(s => s !== suggestion));
+    setToast({ message: `Added: ${suggestion.title}`, type: 'success' });
+  };
+
+
   const handleScaffold = async (topic: string) => {
     setIsProcessing(true);
     setToast({ message: `Building scaffold for "${topic}"…`, type: 'info' });
@@ -380,6 +443,10 @@ export default function App() {
           selectedNodes={selectedNodes}
           onCommand={handleCommand}
           onNodeCreate={handleNodeCreate}
+          onSuggest={handleSuggest}
+          suggestions={suggestions}
+          onAcceptSuggestion={handleAcceptSuggestion}
+          onDismissSuggestions={() => setSuggestions([])}
           onDeselect={(id) => onNodesChange([{ id, type: 'select', selected: false }])}
           onClearSelection={() => {
             const changes = selectedNodes.map(n => ({ id: n.id, type: 'select' as const, selected: false }));
