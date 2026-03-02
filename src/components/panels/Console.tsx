@@ -144,7 +144,7 @@ export function Console({
     }, [activeScope, selectedNodes.length]);
 
     return (
-        <div ref={containerRef} className="fixed left-1/2 -translate-x-1/2 z-50 w-full max-w-[720px] px-4 flex flex-col gap-2" style={{ bottom: '24px' }}>
+        <div ref={containerRef} className="fixed left-1/2 -translate-x-1/2 z-50 w-full max-w-[720px] px-4 flex flex-col gap-2" style={{ bottom: '10px' }}>
 
             {/* ── Source Scope Dropdown ─────────────────────────────────────── */}
             {isDropdownOpen && filteredSources.length > 0 && (

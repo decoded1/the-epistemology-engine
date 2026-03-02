@@ -45,7 +45,8 @@ const ZOOM_LEVELS = [1.0, 1.6] as const;
 const ZOOM_DURATION = 350;
 const SIDE_PAD = 40;   // left / right margin in px
 const TOP_PAD = 40;   // top margin in px
-const BOTTOM_PAD = 40;   // gap between nodes and console top in px
+const BOTTOM_PAD = 20;   // gap between nodes and console top in px
+
 const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 1.5;
 
