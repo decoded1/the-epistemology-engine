@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-void: #07070a;
+  --color-bg-surface: #0c0c10;
+  --color-bg-elevated: #111116;
+  --color-bg-input: #0e0e13;
+  --color-bg-hover: rgba(255, 255, 255, 0.04);
+
+  --color-border-base: rgba(255, 255, 255, 0.06);
+  --color-border-subtle: rgba(255, 255, 255, 0.09);
+  --color-border-focus: rgba(255, 255, 255, 0.16);
+
+  --color-text-primary: #e8e8ed;
+  --color-text-secondary: #a0a0b0;
+  --color-text-muted: #5c5c6e;
+  --color-text-dim: #3a3a48;
+
+  --color-accent-blue: #6889ff;
+  --color-accent-blue-muted: rgba(104, 137, 255, 0.15);
+  --color-accent-blue-border: rgba(104, 137, 255, 0.25);
+
+  --color-accent-violet: #a78bfa;
+  --color-accent-violet-muted: rgba(167, 139, 250, 0.12);
+  --color-accent-violet-border: rgba(167, 139, 250, 0.25);
+
+  --color-accent-emerald: #34d399;
+  --color-accent-emerald-muted: rgba(52, 211, 153, 0.1);
+  --color-accent-emerald-border: rgba(52, 211, 153, 0.2);
+
+  --color-accent-amber: #fbbf24;
+  --color-accent-amber-muted: rgba(251, 191, 36, 0.1);
+  --color-accent-amber-border: rgba(251, 191, 36, 0.2);
+
+  --color-accent-red: #f87171;
+  --color-accent-red-muted: rgba(248, 113, 113, 0.1);
+
+  --font-sans: 'IBM Plex Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-void);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* React Flow Overrides */
+.react-flow__pane {
+  background-color: transparent;
+}
+
+.react-flow__attribution {
+  display: none !important;
+}
+
+/* Node Drawer Staggered Animation */
+@keyframes drawerFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.drawer-content>* {
+  animation: drawerFadeIn 0.2s ease-out both;
+}
+
+.drawer-content>*:nth-child(2) {
+  animation-delay: 0.04s;
+}
+
+.drawer-content>*:nth-child(3) {
+  animation-delay: 0.08s;
+}
+
+.drawer-content>*:nth-child(4) {
+  animation-delay: 0.12s;
+}
+
+.drawer-content>*:nth-child(5) {
+  animation-delay: 0.16s;
+}
