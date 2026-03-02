@@ -3,7 +3,11 @@ import { LayoutGrid, ChevronDown, ChevronUp, Play } from 'lucide-react';
 import { LayoutOptions } from '../../lib/layout';
 
 interface LayoutPanelProps {
-    onApply: (opts: LayoutOptions) => void;
+    onApply: (opts?: LayoutOptions) => void;
+    snapToGrid: boolean;
+    onSnapToGridChange: (v: boolean) => void;
+    snapGrid: [number, number];
+    onSnapGridChange: (v: [number, number]) => void;
 }
 
 type Ranker = NonNullable<LayoutOptions['ranker']>;
@@ -22,10 +26,46 @@ const DIRECTION_LABELS: Record<Direction, string> = {
     BT: 'Bottom → Top',
 };
 
-export function LayoutPanel({ onApply }: LayoutPanelProps) {
+const SNAP_SIZES = [10, 20, 40, 60] as const;
+
+// ── Toggle helper ──────────────────────────────────────────────────────────────
+function Toggle({ id, active, color, onClick }: {
+    id: string; active: boolean;
+    color: 'emerald' | 'blue' | 'amber';
+    onClick: () => void;
+}) {
+    const on: Record<string, string> = {
+        emerald: 'bg-accent-emerald-muted border-accent-emerald-border',
+        blue: 'bg-accent-blue-muted    border-accent-blue-border',
+        amber: 'bg-accent-amber-muted   border-accent-amber-border',
+    };
+    const dot: Record<string, string> = {
+        emerald: 'bg-accent-emerald',
+        blue: 'bg-accent-blue',
+        amber: 'bg-accent-amber',
+    };
+    return (
+        <button
+            id={id}
+            onClick={onClick}
+            className={`relative w-9 h-5 rounded-full border transition-all cursor-pointer ${active ? on[color] : 'bg-bg-elevated border-border-base'
+                }`}
+        >
+            <div className={`absolute top-[3px] w-[13px] h-[13px] rounded-full transition-all ${active ? `left-[18px] ${dot[color]}` : 'left-[3px] bg-text-dim'
+                }`} />
+        </button>
+    );
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+export function LayoutPanel({
+    onApply,
+    snapToGrid, onSnapToGridChange,
+    snapGrid, onSnapGridChange,
+}: LayoutPanelProps) {
     const [isExpanded, setIsExpanded] = useState(false);
 
-    // Settings state
+    // Layout algorithm settings
     const [direction, setDirection] = useState<Direction>('LR');
     const [ranker, setRanker] = useState<Ranker>('network-simplex');
     const [nodesep, setNodesep] = useState(60);
@@ -34,22 +74,13 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
     const [semanticWeighting, setSemanticWeighting] = useState(true);
 
     const handleApply = () => {
-        onApply({
-            direction,
-            ranker,
-            nodesep,
-            ranksep,
-            acyclicer: greedy ? 'greedy' : undefined,
-            semanticWeighting,
-        });
+        onApply({ direction, ranker, nodesep, ranksep, acyclicer: greedy ? 'greedy' : undefined, semanticWeighting });
     };
 
     return (
-        <div
-            className="fixed z-50 animate-fade-in-up select-none"
-            style={{ bottom: '24px', right: '24px' }}
-        >
-            {/* Collapsed pill */}
+        <div className="fixed z-50 animate-fade-in-up select-none" style={{ bottom: '24px', right: '24px' }}>
+
+            {/* ── Collapsed pill ─────────────────────────────────────────────── */}
             {!isExpanded ? (
                 <button
                     id="layout-panel-toggle"
@@ -63,7 +94,8 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
                     <ChevronUp size={11} className="text-text-dim group-hover:text-text-muted transition-colors" />
                 </button>
             ) : (
-                /* Expanded panel */
+
+                /* ── Expanded panel ──────────────────────────────────────────── */
                 <div className="w-[280px] bg-bg-surface border border-border-subtle rounded-2xl shadow-[0_24px_80px_-12px_rgba(0,0,0,0.8),0_0_0_1px_rgba(0,0,0,0.2)] overflow-hidden">
 
                     {/* Header */}
@@ -74,19 +106,18 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
                         </div>
                         <button
                             onClick={() => setIsExpanded(false)}
-                            className="flex items-center gap-1 text-[10px] font-mono text-text-dim hover:text-text-muted transition-colors cursor-pointer"
+                            className="text-text-dim hover:text-text-muted transition-colors cursor-pointer"
                         >
                             <ChevronDown size={12} />
                         </button>
                     </div>
 
-                    <div className="p-4 space-y-5">
+                    {/* Body */}
+                    <div className="p-4 space-y-5 max-h-[80vh] overflow-y-auto">
 
                         {/* Direction */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">
-                                Direction
-                            </label>
+                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">Direction</label>
                             <div className="grid grid-cols-2 gap-1">
                                 {(Object.keys(DIRECTION_LABELS) as Direction[]).map(d => (
                                     <button
@@ -94,8 +125,8 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
                                         id={`layout-dir-${d}`}
                                         onClick={() => setDirection(d)}
                                         className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-medium border transition-all cursor-pointer ${direction === d
-                                            ? 'bg-accent-blue-muted border-accent-blue-border text-accent-blue'
-                                            : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
+                                                ? 'bg-accent-blue-muted border-accent-blue-border text-accent-blue'
+                                                : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
                                             }`}
                                     >
                                         {DIRECTION_LABELS[d]}
@@ -106,9 +137,7 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
 
                         {/* Ranker */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">
-                                Ranker Algorithm
-                            </label>
+                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">Ranker Algorithm</label>
                             <div className="space-y-1">
                                 {(Object.keys(RANKER_INFO) as Ranker[]).map(r => (
                                     <button
@@ -116,28 +145,22 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
                                         id={`layout-ranker-${r}`}
                                         onClick={() => setRanker(r)}
                                         className={`w-full text-left px-3 py-2 rounded-lg border transition-all cursor-pointer group ${ranker === r
-                                            ? 'bg-accent-violet-muted border-accent-violet-border'
-                                            : 'bg-bg-elevated border-border-base hover:border-border-focus'
+                                                ? 'bg-accent-violet-muted border-accent-violet-border'
+                                                : 'bg-bg-elevated border-border-base hover:border-border-focus'
                                             }`}
                                     >
                                         <div className={`text-[10px] font-mono font-semibold ${ranker === r ? 'text-accent-violet' : 'text-text-secondary group-hover:text-text-primary'}`}>
                                             {r}
                                         </div>
-                                        <div className="text-[9px] mt-0.5 text-text-dim">
-                                            {RANKER_INFO[r]}
-                                        </div>
+                                        <div className="text-[9px] mt-0.5 text-text-dim">{RANKER_INFO[r]}</div>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Spacing sliders */}
+                        {/* Spacing */}
                         <div className="space-y-3">
-                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">
-                                Spacing
-                            </label>
-
-                            {/* Node sep */}
+                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">Spacing</label>
                             <div>
                                 <div className="flex justify-between items-center mb-1">
                                     <span className="text-[10px] font-mono text-text-muted">nodesep</span>
@@ -148,14 +171,10 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
                                     type="range" min={20} max={200} step={10}
                                     value={nodesep}
                                     onChange={e => setNodesep(+e.target.value)}
-                                    className="w-full h-[3px] rounded-full accent-accent-blue bg-bg-elevated cursor-pointer"
-                                    style={{
-                                        background: `linear-gradient(to right, hsl(217, 91%, 60%) ${((nodesep - 20) / 180) * 100}%, hsl(0,0%,18%) ${((nodesep - 20) / 180) * 100}%)`
-                                    }}
+                                    className="w-full h-[3px] rounded-full cursor-pointer"
+                                    style={{ background: `linear-gradient(to right, hsl(217,91%,60%) ${((nodesep - 20) / 180) * 100}%, hsl(0,0%,18%) ${((nodesep - 20) / 180) * 100}%)` }}
                                 />
                             </div>
-
-                            {/* Rank sep */}
                             <div>
                                 <div className="flex justify-between items-center mb-1">
                                     <span className="text-[10px] font-mono text-text-muted">ranksep</span>
@@ -167,51 +186,60 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
                                     value={ranksep}
                                     onChange={e => setRanksep(+e.target.value)}
                                     className="w-full h-[3px] rounded-full cursor-pointer"
-                                    style={{
-                                        background: `linear-gradient(to right, hsl(271, 91%, 65%) ${((ranksep - 40) / 260) * 100}%, hsl(0,0%,18%) ${((ranksep - 40) / 260) * 100}%)`
-                                    }}
+                                    style={{ background: `linear-gradient(to right, hsl(271,91%,65%) ${((ranksep - 40) / 260) * 100}%, hsl(0,0%,18%) ${((ranksep - 40) / 260) * 100}%)` }}
                                 />
                             </div>
                         </div>
 
-                        {/* Acyclicer toggle */}
+                        {/* Toggle row: Greedy Acyclicer */}
                         <div className="flex items-center justify-between">
                             <div>
                                 <div className="text-[10px] font-mono font-semibold text-text-muted">Greedy Acyclicer</div>
                                 <div className="text-[9px] text-text-dim mt-0.5">Handles cycles more elegantly</div>
                             </div>
-                            <button
-                                id="layout-greedy-toggle"
-                                onClick={() => setGreedy(g => !g)}
-                                className={`relative w-9 h-5 rounded-full border transition-all cursor-pointer ${greedy
-                                    ? 'bg-accent-emerald-muted border-accent-emerald-border'
-                                    : 'bg-bg-elevated border-border-base'
-                                    }`}
-                            >
-                                <div className={`absolute top-[3px] w-[13px] h-[13px] rounded-full transition-all ${greedy ? 'left-[18px] bg-accent-emerald' : 'left-[3px] bg-text-dim'
-                                    }`} />
-                            </button>
+                            <Toggle id="layout-greedy-toggle" active={greedy} color="emerald" onClick={() => setGreedy(g => !g)} />
                         </div>
 
-                        {/* Semantic Weighting toggle */}
+                        {/* Toggle row: Semantic Weighting */}
                         <div className="flex items-center justify-between">
                             <div>
                                 <div className="text-[10px] font-mono font-semibold text-text-muted">Semantic Weighting</div>
                                 <div className="text-[9px] text-text-dim mt-0.5">Pulls related nodes together; pushes contradictions apart</div>
                             </div>
-                            <button
-                                id="layout-semantic-toggle"
-                                onClick={() => setSemanticWeighting(s => !s)}
-                                className={`relative w-9 h-5 rounded-full border transition-all cursor-pointer ${semanticWeighting
-                                        ? 'bg-accent-blue-muted border-accent-blue-border'
-                                        : 'bg-bg-elevated border-border-base'
-                                    }`}
-                            >
-                                <div className={`absolute top-[3px] w-[13px] h-[13px] rounded-full transition-all ${semanticWeighting ? 'left-[18px] bg-accent-blue' : 'left-[3px] bg-text-dim'
-                                    }`} />
-                            </button>
+                            <Toggle id="layout-semantic-toggle" active={semanticWeighting} color="blue" onClick={() => setSemanticWeighting(s => !s)} />
                         </div>
-                    </div>
+
+                        {/* Snap to Grid */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">Snap to Grid</label>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <div className="text-[10px] font-mono font-semibold text-text-muted">Enable snapping</div>
+                                    <div className="text-[9px] text-text-dim mt-0.5">Nodes lock to grid on drag</div>
+                                </div>
+                                <Toggle id="layout-snap-toggle" active={snapToGrid} color="amber" onClick={() => onSnapToGridChange(!snapToGrid)} />
+                            </div>
+
+                            {snapToGrid && (
+                                <div className="flex gap-1 mt-1">
+                                    {SNAP_SIZES.map(size => (
+                                        <button
+                                            key={size}
+                                            id={`layout-snap-${size}`}
+                                            onClick={() => onSnapGridChange([size, size])}
+                                            className={`flex-1 py-1 text-[9px] font-mono font-semibold rounded-md border transition-all cursor-pointer ${snapGrid[0] === size
+                                                    ? 'bg-accent-amber-muted border-accent-amber-border text-accent-amber'
+                                                    : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
+                                                }`}
+                                        >
+                                            {size}px
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                    </div>{/* /Body */}
 
                     {/* Apply button */}
                     <div className="px-4 pb-4">
@@ -224,6 +252,7 @@ export function LayoutPanel({ onApply }: LayoutPanelProps) {
                             Apply Layout
                         </button>
                     </div>
+
                 </div>
             )}
         </div>

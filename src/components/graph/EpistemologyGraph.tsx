@@ -34,11 +34,15 @@ const connectionLineStyle = {
     strokeDasharray: '4 4'
 };
 
+const SNAP: [number, number] = [20, 20];
+
 interface EpistemologyGraphProps {
     onViewportChange: (viewport: Viewport) => void;
+    snapToGrid?: boolean;
+    snapGrid?: [number, number];
 }
 
-export function EpistemologyGraph({ onViewportChange }: EpistemologyGraphProps) {
+export function EpistemologyGraph({ onViewportChange, snapToGrid = true, snapGrid = SNAP }: EpistemologyGraphProps) {
     const { nodes, edges, onNodesChange, onEdgesChange, onConnect } = useGraphStore();
     const { getViewport } = useReactFlow();
 
@@ -58,6 +62,8 @@ export function EpistemologyGraph({ onViewportChange }: EpistemologyGraphProps) 
                 onConnect={onConnect}
                 onMove={handleMove}
                 connectionMode={ConnectionMode.Loose}
+                snapToGrid={snapToGrid}
+                snapGrid={snapGrid}
                 selectionOnDrag
                 panOnScroll
                 selectionMode={SelectionMode.Partial}
@@ -69,7 +75,7 @@ export function EpistemologyGraph({ onViewportChange }: EpistemologyGraphProps) 
             >
                 <Background
                     variant={BackgroundVariant.Dots}
-                    gap={20}
+                    gap={snapGrid[0]}
                     size={1}
                     color="rgba(255, 255, 255, 0.06)"
                 />

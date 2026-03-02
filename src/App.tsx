@@ -24,6 +24,8 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDraggingFromDock, setIsDraggingFromDock] = useState(false);
   const [isFileDraggingOver, setIsFileDraggingOver] = useState(false);
+  const [snapToGrid, setSnapToGrid] = useState(true);
+  const [snapGrid, setSnapGrid] = useState<[number, number]>([20, 20]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
@@ -363,7 +365,11 @@ export default function App() {
         />
         <EmptyState isVisible={nodes.length === 0} />
 
-        <EpistemologyGraph onViewportChange={setViewport} />
+        <EpistemologyGraph
+          onViewportChange={setViewport}
+          snapToGrid={snapToGrid}
+          snapGrid={snapGrid}
+        />
 
         <Dock
           selectedNodes={selectedNodes}
@@ -387,7 +393,13 @@ export default function App() {
 
         <ZoomIndicator zoom={viewport.zoom} />
 
-        <LayoutPanel onApply={applyLayout} />
+        <LayoutPanel
+          onApply={applyLayout}
+          snapToGrid={snapToGrid}
+          onSnapToGridChange={setSnapToGrid}
+          snapGrid={snapGrid}
+          onSnapGridChange={setSnapGrid}
+        />
 
         {isFileDraggingOver && (
           <div className="fixed inset-0 z-[200] pointer-events-none flex items-center justify-center">
