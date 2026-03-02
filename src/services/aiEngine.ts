@@ -178,39 +178,92 @@ Rules:
       nodeType: AppNodeType;
     }[];
   }> {
-    const existingTitles = allNodes.map(n => n.data.title).filter(Boolean);
+    // ── Full graph context ───────────────────────────────────────────────────
+    // 1. All nodes with type + description (not just titles)
+    const nodeIndex = allNodes
+      .filter(n => n.id !== anchorNode.id)
+      .map(n => `  [${n.type}] "${n.data.title}"${n.data.description ? `: ${n.data.description}` : ''}`)
+      .join('\n');
+
+    // 2. Full edge topology (all edges, not just anchor-adjacent)
+    const edgeIndex = allEdges.map(e => {
+      const src = allNodes.find(n => n.id === e.source)?.data.title ?? e.source;
+      const tgt = allNodes.find(n => n.id === e.target)?.data.title ?? e.target;
+      return `  "${src}" --[${e.data?.relationType ?? '?'}]--> "${tgt}"`;
+    }).join('\n');
+
+    // 3. Anchor's immediate neighbourhood
     const connectedEdges = allEdges.filter(
       e => e.source === anchorNode.id || e.target === anchorNode.id
     );
-    const connectedNodes = connectedEdges.map(e => {
+    const neighbourhood = connectedEdges.map(e => {
       const otherId = e.source === anchorNode.id ? e.target : e.source;
       const other = allNodes.find(n => n.id === otherId);
-      return other ? `"${other.data.title}" (${e.data?.relationType ?? 'connected'})` : null;
-    }).filter(Boolean);
+      const dir = e.source === anchorNode.id ? 'outgoing' : 'incoming';
+      return `  ${dir} [${e.data?.relationType ?? '?'}] "${other?.data.title ?? otherId}" (${other?.type ?? '?'})`;
+    }).join('\n');
+
+    // 4. Topological depth (BFS from nodes with no incoming edges)
+    const inDegree: Record<string, number> = {};
+    allNodes.forEach(n => { inDegree[n.id] = 0; });
+    allEdges.forEach(e => { inDegree[e.target] = (inDegree[e.target] ?? 0) + 1; });
+    const depthMap: Record<string, number> = {};
+    const queue: string[] = allNodes.filter(n => inDegree[n.id] === 0).map(n => n.id);
+    queue.forEach(id => { depthMap[id] = 0; });
+    while (queue.length) {
+      const cur = queue.shift()!;
+      allEdges.filter(e => e.source === cur).forEach(e => {
+        if (depthMap[e.target] === undefined) {
+          depthMap[e.target] = (depthMap[cur] ?? 0) + 1;
+          queue.push(e.target);
+        }
+      });
+    }
+    const anchorDepth = depthMap[anchorNode.id] ?? '?';
+    const depthIndex = allNodes
+      .map(n => `  depth ${depthMap[n.id] ?? '?'}: [${n.type}] "${n.data.title}"`)
+      .sort()
+      .join('\n');
 
     const prompt = `You are an expert knowledge graph assistant for the Epistemology Engine.
+You have full visibility of the entire graph — use it to avoid redundancy and suggest ideas that genuinely extend the web.
 
-The user is exploring the node: "${anchorNode.data.title}" (type: ${anchorNode.type})
-Description: ${anchorNode.data.description ?? 'none'}
+━━ ANCHOR NODE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Title:       "${anchorNode.data.title}"
+Type:        ${anchorNode.type}
+Description: ${anchorNode.data.description ?? '(none)'}
+Depth:       ${anchorDepth} (hierarchy level from root)
 
-Already connected to:
-${connectedNodes.length ? connectedNodes.map(c => `  - ${c}`).join('\n') : '  (no connections yet)'}
+Direct connections:
+${neighbourhood || '  (none yet)'}
 
-User's query: "${query}"
+━━ FULL GRAPH — ALL NODES (${allNodes.length}) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${nodeIndex || '  (no other nodes)'}
 
-Existing graph nodes (do NOT duplicate these titles): ${existingTitles.join(', ')}
+━━ FULL GRAPH — ALL EDGES (${allEdges.length}) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${edgeIndex || '  (no edges yet)'}
 
-Generate 3 to 5 distinct, intellectually substantive suggestions for NEW nodes that could be added to expand "${anchorNode.data.title}" in the direction the user is asking.
+━━ TOPOLOGICAL DEPTH MAP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${depthIndex || '  (no depth info)'}
+
+━━ USER QUERY ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"${query}"
+
+━━ INSTRUCTIONS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Generate 3 to 5 NEW node suggestions that expand "${anchorNode.data.title}" in the direction the user is asking.
+
+Rules:
+- Do NOT suggest anything already covered by an existing node (check titles AND descriptions for semantic overlap)
+- Consider the full graph topology — avoid ideas already implied by nearby nodes
+- Be specific to the domain — no generic placeholders
+- Prefer depth over breadth: go deeper into the topic rather than sideways
 
 For each suggestion:
-- title: 2–5 words, specific and punchy
-- description: 1 sentence explaining what this node represents
-- relationType: exactly one of "supports", "contradicts", "refines", "prerequisite", "extends"
-  (choose based on how this new node would relate TO the anchor node)
-- nodeType: exactly one of "concept", "branch", "claim"
-  (use "claim" for specific propositions, "branch" for sub-areas, "concept" for ideas/themes)
+- title: 2–5 words, punchy and specific
+- description: 1 sentence explaining what this node adds to the graph
+- relationType: how this new node relates TO the anchor — one of: "supports", "contradicts", "refines", "prerequisite", "extends"
+- nodeType: one of: "concept" (ideas/themes), "branch" (sub-areas), "claim" (specific propositions)`;
 
-Be specific to the domain — avoid generic placeholders.`;
 
     const ai = getAiClient();
     const response = await ai.models.generateContent({
