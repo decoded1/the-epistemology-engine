@@ -28,7 +28,8 @@ const EDGE_WEIGHTS: Record<string, { weight: number; minlen: number }> = {
     supports: { weight: 3, minlen: 1 },
     refines: { weight: 3, minlen: 1 },
     extends: { weight: 2, minlen: 1 },
-    contradicts: { weight: 1, minlen: 2 },
+    contradicts: { weight: 1, minlen: 1 }, // rank = hierarchy depth, not edge sentiment
+
 };
 
 export interface NodeDimensions {
