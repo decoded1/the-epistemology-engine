@@ -266,8 +266,6 @@ export default function App() {
     if (!anchorNode) return;
 
     const id = `n-${Date.now()}`;
-    const x = anchorNode.position.x + 360;
-    const y = anchorNode.position.y + (suggestions.indexOf(suggestion)) * 160;
 
     const nodeData: any = {
       title: suggestion.title,
@@ -283,17 +281,39 @@ export default function App() {
       nodeData.references = { literature: [], media: [] };
     }
 
-    addNode({ id, type: suggestion.nodeType, position: { x, y }, selected: false, data: nodeData } as any);
-    addEdges([{
+    const newEdge = {
       id: `e-${Date.now()}`,
       source: suggestionAnchorId!,
       target: id,
       type: 'semantic' as const,
       data: { relationType: suggestion.relationType },
-    }]);
+    };
+
+    // Compute Dagre over ALL nodes+edges including the new ones — same as applyLayout().
+    const cx = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
+    const cy = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+    const dims: Record<string, { width: number; height: number }> = {};
+    nodes.forEach(n => { if (n.measured) dims[n.id] = { width: n.measured.width ?? 300, height: n.measured.height ?? 120 }; });
+
+    const positions = applyDagreLayout(
+      [...nodes.map(n => n.id), id],
+      [
+        ...edges.map(e => ({ source: e.source, target: e.target, relationType: e.data?.relationType as string | undefined })),
+        { source: newEdge.source, target: newEdge.target, relationType: suggestion.relationType },
+      ],
+      { direction: 'TB', nodesep: 80, ranksep: 160, center: { x: cx, y: cy } },
+      dims
+    );
+
+    const newPos = positions[id] ?? { x: cx, y: cy };
+    addNode({ id, type: suggestion.nodeType, position: { x: newPos.x, y: newPos.y }, selected: false, data: nodeData } as any);
+    addEdges([newEdge]);
+
+    // Reposition all existing nodes to match the recalculated layout.
+    setTimeout(() => repositionNodes(positions), 0);
 
     setSuggestions(prev => prev.filter(s => s !== suggestion));
-    setToast({ message: `Added: ${suggestion.title}`, type: 'success' });
+    setToast({ message: `Added "${suggestion.title}" · layout updated.`, type: 'success' });
   };
 
 
