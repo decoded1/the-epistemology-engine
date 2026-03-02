@@ -66,10 +66,10 @@ export function LayoutPanel({
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Layout algorithm settings
-    const [direction, setDirection] = useState<Direction>('LR');
+    const [direction, setDirection] = useState<Direction>('TB');
     const [ranker, setRanker] = useState<Ranker>('network-simplex');
-    const [nodesep, setNodesep] = useState(60);
-    const [ranksep, setRanksep] = useState(120);
+    const [nodesep, setNodesep] = useState(100);
+    const [ranksep, setRanksep] = useState(160);
     const [greedy, setGreedy] = useState(true);
     const [semanticWeighting, setSemanticWeighting] = useState(true);
 
@@ -125,8 +125,8 @@ export function LayoutPanel({
                                         id={`layout-dir-${d}`}
                                         onClick={() => setDirection(d)}
                                         className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-medium border transition-all cursor-pointer ${direction === d
-                                                ? 'bg-accent-blue-muted border-accent-blue-border text-accent-blue'
-                                                : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
+                                            ? 'bg-accent-blue-muted border-accent-blue-border text-accent-blue'
+                                            : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
                                             }`}
                                     >
                                         {DIRECTION_LABELS[d]}
@@ -145,8 +145,8 @@ export function LayoutPanel({
                                         id={`layout-ranker-${r}`}
                                         onClick={() => setRanker(r)}
                                         className={`w-full text-left px-3 py-2 rounded-lg border transition-all cursor-pointer group ${ranker === r
-                                                ? 'bg-accent-violet-muted border-accent-violet-border'
-                                                : 'bg-bg-elevated border-border-base hover:border-border-focus'
+                                            ? 'bg-accent-violet-muted border-accent-violet-border'
+                                            : 'bg-bg-elevated border-border-base hover:border-border-focus'
                                             }`}
                                     >
                                         <div className={`text-[10px] font-mono font-semibold ${ranker === r ? 'text-accent-violet' : 'text-text-secondary group-hover:text-text-primary'}`}>
@@ -228,8 +228,8 @@ export function LayoutPanel({
                                             id={`layout-snap-${size}`}
                                             onClick={() => onSnapGridChange([size, size])}
                                             className={`flex-1 py-1 text-[9px] font-mono font-semibold rounded-md border transition-all cursor-pointer ${snapGrid[0] === size
-                                                    ? 'bg-accent-amber-muted border-accent-amber-border text-accent-amber'
-                                                    : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
+                                                ? 'bg-accent-amber-muted border-accent-amber-border text-accent-amber'
+                                                : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
                                                 }`}
                                         >
                                             {size}px

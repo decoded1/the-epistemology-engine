@@ -435,15 +435,15 @@ Rules:
           centerY = avgY;
         }
 
-        // Dagre layout — superior topological engine with semantic weighting
+        // Dagre layout — TB direction, wider spacing for epistemological hierarchy
         const positions = applyDagreLayout(
           result.nodes.map((n: any) => n.tempId),
           result.edges.map((e: any) => ({ source: e.from, target: e.to, relationType: e.relationType })),
           {
-            direction: 'LR',
+            direction: 'TB',
             ranker: 'network-simplex',
-            nodesep: 60,
-            ranksep: 120,
+            nodesep: 100,
+            ranksep: 160,
             semanticWeighting: true,
             center: { x: centerX, y: centerY }
           },

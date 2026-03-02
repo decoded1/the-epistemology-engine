@@ -76,11 +76,11 @@ export function applyDagreLayout(
     dimensions: NodeDimensions = {}
 ) {
     const {
-        direction = 'LR',
+        direction = 'TB',
         ranker = 'network-simplex',
         acyclicer = 'greedy',
-        nodesep = 60,
-        ranksep = 120,
+        nodesep = 100,
+        ranksep = 160,
         nodeWidth = 300,
         nodeHeight = 120,
         center = { x: 0, y: 0 },
