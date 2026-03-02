@@ -1,91 +1,114 @@
 import Dagre from '@dagrejs/dagre';
 
+/**
+ * Advanced Dagre Layout Options
+ */
 export interface LayoutOptions {
-    /** Graph direction. 'LR' = left→right (default). 'TB' = top→bottom. */
-    direction?: 'LR' | 'TB';
-    /** World-space point to centre the laid-out graph around. */
+    direction?: 'TB' | 'BT' | 'LR' | 'RL'; // Rank direction (Left-to-Right is usually best for webs)
+    ranker?: 'network-simplex' | 'tight-tree' | 'longest-path'; // Algorithm to assign ranks
+    acyclicer?: 'greedy' | undefined; // How to handle cycles
+    nodesep?: number; // Horizontal separation between nodes (in LR)
+    ranksep?: number; // Vertical separation between ranks (in LR)
+    nodeWidth?: number; // Default width if not provided per-node
+    nodeHeight?: number; // Default height if not provided per-node
     center?: { x: number; y: number };
-    /** Node width in px. ReactFlow nodes are 300px wide. */
-    nodeWidth?: number;
-    /** Node height estimate in px. Collapsed nodes are ~120px. */
-    nodeHeight?: number;
-    /** Dagre: vertical distance between ranks (columns in LR mode). */
-    rankSep?: number;
-    /** Dagre: horizontal distance between nodes in the same rank. */
-    nodeSep?: number;
 }
 
 /**
- * Runs the Dagre Sugiyama layout algorithm on a set of node IDs and edges.
- *
- * Returns a map of  nodeId → { x, y }  where (x, y) is the ReactFlow
- * top-left corner position of each node (NOT the Dagre centre).
- *
- * Intentionally type-agnostic so it can be called from:
- *  - App.tsx  (with real AppNode IDs and AppEdge source/target)
- *  - cli.ts   (with tempIds and { from, to } pairs re-mapped by the caller)
+ * Individual node dimensions for precise layout
+ */
+export interface NodeDimensions {
+    [nodeId: string]: { width: number; height: number };
+}
+
+/**
+ * Shared layout utility using Dagre (Standardized Topological Engine)
+ * 
+ * Based on research into @dagrejs/dagre/dist/dagre.js:
+ * - Uses SugarIyama-style ranking for clear hierarchies.
+ * - Supports individual node dimensions for collision-free layout.
+ * - Supports 'network-simplex' for optimal compact grouping.
  */
 export function applyDagreLayout(
     nodeIds: string[],
     edges: { source: string; target: string }[],
     options: LayoutOptions = {},
-): Record<string, { x: number; y: number }> {
+    dimensions: NodeDimensions = {} // Real measured sizes from the frontend
+) {
     const {
         direction = 'LR',
-        center = { x: 0, y: 0 },
+        ranker = 'network-simplex',
+        acyclicer = 'greedy',
+        nodesep = 50,
+        ranksep = 80,
         nodeWidth = 300,
         nodeHeight = 120,
-        rankSep = 220,
-        nodeSep = 100,
+        center = { x: 0, y: 0 }
     } = options;
 
-    if (!nodeIds.length) return {};
+    const g = new Dagre.graphlib.Graph();
 
-    const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+    // 1. Configure Graph
     g.setGraph({
         rankdir: direction,
-        ranksep: rankSep,
-        nodesep: nodeSep,
-        marginx: 40,
-        marginy: 40,
+        ranker: ranker,
+        acyclicer: acyclicer,
+        nodesep: nodesep,
+        ranksep: ranksep,
+        marginx: 0,
+        marginy: 0,
     });
 
-    const idSet = new Set(nodeIds);
-    nodeIds.forEach(id => g.setNode(id, { width: nodeWidth, height: nodeHeight }));
-    edges.forEach(e => {
-        if (idSet.has(e.source) && idSet.has(e.target)) {
-            g.setEdge(e.source, e.target);
-        }
+    g.setDefaultEdgeLabel(() => ({}));
+
+    // 2. Set Nodes with individual dimensions
+    nodeIds.forEach(id => {
+        const dim = dimensions[id] || { width: nodeWidth, height: nodeHeight };
+        g.setNode(id, {
+            width: dim.width,
+            height: dim.height
+        });
     });
 
+    // 3. Set Edges
+    edges.forEach(edge => {
+        g.setEdge(edge.source, edge.target);
+    });
+
+    // 4. Run Layout
     Dagre.layout(g);
 
-    // Compute the bounding-box centre of the laid-out graph so we can
-    // re-centre the whole thing onto the requested `center` point.
-    const xs: number[] = [];
-    const ys: number[] = [];
+    // 5. Compute bounding box for centering
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+
     nodeIds.forEach(id => {
-        const n = g.node(id);
-        if (n) { xs.push(n.x); ys.push(n.y); }
+        const node = g.node(id);
+        const x = node.x;
+        const y = node.y;
+        const w = node.width;
+        const h = node.height;
+
+        minX = Math.min(minX, x - w / 2);
+        maxX = Math.max(maxX, x + w / 2);
+        minY = Math.min(minY, y - h / 2);
+        maxY = Math.max(maxY, y + h / 2);
     });
 
-    if (!xs.length) return {};
+    const graphWidth = maxX - minX;
+    const graphHeight = maxY - minY;
 
-    const layoutCx = (Math.min(...xs) + Math.max(...xs)) / 2;
-    const layoutCy = (Math.min(...ys) + Math.max(...ys)) / 2;
-    const dx = center.x - layoutCx;
-    const dy = center.y - layoutCy;
-
-    const positions: Record<string, { x: number; y: number }> = {};
+    // 6. Return Map: Node ID -> Top-Left Position { x, y } (ReactFlow style)
+    // Offset by centering point and subtract half-size since Dagre uses center-pos
+    const result: Record<string, { x: number; y: number, rank?: number }> = {};
     nodeIds.forEach(id => {
-        const n = g.node(id);
-        if (!n) return;
-        // Dagre gives us the node centre; ReactFlow wants the top-left corner.
-        positions[id] = {
-            x: Math.round(n.x - nodeWidth / 2 + dx),
-            y: Math.round(n.y - nodeHeight / 2 + dy),
+        const node = g.node(id);
+        result[id] = {
+            x: center.x - (graphWidth / 2) + (node.x - minX) - (node.width / 2),
+            y: center.y - (graphHeight / 2) + (node.y - minY) - (node.height / 2),
+            rank: (node as any).rank // Keep rank info for metadata if needed
         };
     });
 
-    return positions;
+    return result;
 }

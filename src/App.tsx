@@ -166,13 +166,34 @@ export default function App() {
           setToast({ message: 'No nodes on canvas to layout.', type: 'info' });
           return;
         }
+
         const cx = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
         const cy = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+
+        // Capture actual rendered sizes to prevent overlaps/misalignment
+        const dimensions: Record<string, { width: number; height: number }> = {};
+        nodes.forEach(n => {
+          if (n.measured) {
+            dimensions[n.id] = {
+              width: n.measured.width ?? 300,
+              height: n.measured.height ?? 120
+            };
+          }
+        });
+
         const positions = applyDagreLayout(
           nodes.map(n => n.id),
           edges.map(e => ({ source: e.source, target: e.target })),
-          { direction: 'LR', center: { x: cx, y: cy } },
+          {
+            direction: 'LR',
+            ranker: 'network-simplex',
+            nodesep: 60,
+            ranksep: 100,
+            center: { x: cx, y: cy }
+          },
+          dimensions
         );
+
         repositionNodes(positions);
         setToast({ message: `Layout applied · ${nodes.length} nodes re-arranged.`, type: 'success' });
         return;
@@ -258,17 +279,23 @@ export default function App() {
         cx = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
         cy = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
       } else {
-        const maxX = Math.max(...nodes.map(n => n.position.x + 300));
-        const avgY = nodes.reduce((sum, n) => sum + n.position.y, 0) / nodes.length;
-        cx = maxX + 900;
+        const maxX = Math.max(...nodes.map(n => n.position.x + (n.measured?.width ?? 300)));
+        const avgY = nodes.reduce((sum, n) => sum + n.position.y + ((n.measured?.height ?? 120) / 2), 0) / nodes.length;
+        cx = maxX + 400; // Shift cluster to the right
         cy = avgY;
       }
 
-      // Dagre layout — topological, not geometric
+      // Dagre layout — superior topological engine
       const positions = applyDagreLayout(
         result.nodes.map((n: any) => n.tempId),
         result.edges.map((e: any) => ({ source: e.from, target: e.to })),
-        { direction: 'LR', center: { x: cx, y: cy } },
+        {
+          direction: 'LR',
+          ranker: 'network-simplex',
+          nodesep: 60,
+          ranksep: 100,
+          center: { x: cx, y: cy }
+        },
       );
 
       // Build real IDs and create nodes
