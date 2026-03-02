@@ -4,12 +4,13 @@ import { EpistemologyGraph } from './components/graph/EpistemologyGraph';
 import { Console } from './components/panels/Console';
 import { Dock } from './components/panels/Dock';
 import { EmptyState } from './components/panels/EmptyState';
+import { LayoutPanel } from './components/panels/LayoutPanel';
 import { ZoomIndicator } from './components/ui/ZoomIndicator';
 import { ToastProps } from './components/ui/Toast';
 import { useGraphStore } from './store/useGraphStore';
 import { aiEngine } from './services/aiEngine';
 import { AppNodeType, SemanticRelationType, ConceptNodeData, ClaimNodeData, Source } from './types';
-import { applyDagreLayout } from './lib/layout';
+import { applyDagreLayout, LayoutOptions } from './lib/layout';
 
 
 export default function App() {
@@ -162,40 +163,7 @@ export default function App() {
 
       // ── layout command ────────────────────────────────────────────────────
       if (lowerCmd === 'layout') {
-        if (nodes.length === 0) {
-          setToast({ message: 'No nodes on canvas to layout.', type: 'info' });
-          return;
-        }
-
-        const cx = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
-        const cy = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
-
-        // Capture actual rendered sizes to prevent overlaps/misalignment
-        const dimensions: Record<string, { width: number; height: number }> = {};
-        nodes.forEach(n => {
-          if (n.measured) {
-            dimensions[n.id] = {
-              width: n.measured.width ?? 300,
-              height: n.measured.height ?? 120
-            };
-          }
-        });
-
-        const positions = applyDagreLayout(
-          nodes.map(n => n.id),
-          edges.map(e => ({ source: e.source, target: e.target })),
-          {
-            direction: 'LR',
-            ranker: 'network-simplex',
-            nodesep: 60,
-            ranksep: 100,
-            center: { x: cx, y: cy }
-          },
-          dimensions
-        );
-
-        repositionNodes(positions);
-        setToast({ message: `Layout applied · ${nodes.length} nodes re-arranged.`, type: 'success' });
+        applyLayout();
         return;
       }
 
@@ -356,6 +324,30 @@ export default function App() {
     uploadEpub(file);
   };
 
+  // ── Shared layout runner used by console command + LayoutPanel ──────────
+  const applyLayout = (opts: LayoutOptions = {}) => {
+    if (nodes.length === 0) {
+      setToast({ message: 'No nodes on canvas to layout.', type: 'info' });
+      return;
+    }
+    const cx = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
+    const cy = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+    const dimensions: Record<string, { width: number; height: number }> = {};
+    nodes.forEach(n => {
+      if (n.measured) {
+        dimensions[n.id] = { width: n.measured.width ?? 300, height: n.measured.height ?? 120 };
+      }
+    });
+    const positions = applyDagreLayout(
+      nodes.map(n => n.id),
+      edges.map(e => ({ source: e.source, target: e.target })),
+      { direction: 'LR', ranker: 'network-simplex', nodesep: 60, ranksep: 100, ...opts, center: { x: cx, y: cy } },
+      dimensions
+    );
+    repositionNodes(positions);
+    setToast({ message: `Layout applied · ${nodes.length} nodes re-arranged.`, type: 'success' });
+  };
+
   const { onNodesChange } = useGraphStore.getState();
 
   return (
@@ -393,6 +385,8 @@ export default function App() {
         />
 
         <ZoomIndicator zoom={viewport.zoom} />
+
+        <LayoutPanel onApply={applyLayout} />
 
         {isFileDraggingOver && (
           <div className="fixed inset-0 z-[200] pointer-events-none flex items-center justify-center">
