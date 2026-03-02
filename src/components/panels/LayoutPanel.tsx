@@ -67,14 +67,15 @@ export function LayoutPanel({
 
     // Layout algorithm settings
     const [direction, setDirection] = useState<Direction>('TB');
-    const [ranker, setRanker] = useState<Ranker>('network-simplex');
-    const [nodesep, setNodesep] = useState(100);
-    const [ranksep, setRanksep] = useState(160);
+    const [ranker, setRanker] = useState<Ranker>('longest-path');
+    const [align, setAlign] = useState<'UL' | 'UR' | 'DL' | 'DR'>('UL');
+    const [nodesep, setNodesep] = useState(120);
+    const [ranksep, setRanksep] = useState(180);
     const [greedy, setGreedy] = useState(true);
     const [semanticWeighting, setSemanticWeighting] = useState(true);
 
     const handleApply = () => {
-        onApply({ direction, ranker, nodesep, ranksep, acyclicer: greedy ? 'greedy' : undefined, semanticWeighting });
+        onApply({ direction, ranker, align, nodesep, ranksep, acyclicer: greedy ? 'greedy' : undefined, semanticWeighting });
     };
 
     return (
@@ -153,6 +154,26 @@ export function LayoutPanel({
                                             {r}
                                         </div>
                                         <div className="text-[9px] mt-0.5 text-text-dim">{RANKER_INFO[r]}</div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Alignment */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">Node Alignment</label>
+                            <div className="grid grid-cols-4 gap-1">
+                                {(['UL', 'UR', 'DL', 'DR'] as const).map(a => (
+                                    <button
+                                        key={a}
+                                        id={`layout-align-${a}`}
+                                        onClick={() => setAlign(a)}
+                                        className={`py-1 text-[9px] font-mono font-semibold rounded-md border transition-all cursor-pointer ${align === a
+                                            ? 'bg-accent-violet-muted border-accent-violet-border text-accent-violet'
+                                            : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
+                                            }`}
+                                    >
+                                        {a}
                                     </button>
                                 ))}
                             </div>

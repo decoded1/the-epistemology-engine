@@ -7,6 +7,7 @@ export interface LayoutOptions {
     direction?: 'TB' | 'BT' | 'LR' | 'RL';
     ranker?: 'network-simplex' | 'tight-tree' | 'longest-path';
     acyclicer?: 'greedy' | undefined;
+    align?: 'UL' | 'UR' | 'DL' | 'DR'; // node alignment within rank
     nodesep?: number;
     ranksep?: number;
     nodeWidth?: number;
@@ -77,10 +78,11 @@ export function applyDagreLayout(
 ) {
     const {
         direction = 'TB',
-        ranker = 'network-simplex',
+        ranker = 'longest-path',
         acyclicer = 'greedy',
-        nodesep = 100,
-        ranksep = 160,
+        align = 'UL',
+        nodesep = 120,
+        ranksep = 180,
         nodeWidth = 300,
         nodeHeight = 120,
         center = { x: 0, y: 0 },
@@ -93,6 +95,7 @@ export function applyDagreLayout(
         rankdir: direction,
         ranker: ranker,
         acyclicer: acyclicer,
+        align: align,
         nodesep: nodesep,
         ranksep: ranksep,
         marginx: 40,
