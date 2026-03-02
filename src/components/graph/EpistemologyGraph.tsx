@@ -43,7 +43,7 @@ const SNAP: [number, number] = [20, 20];
 // panZoom.scaleTo() which animates. instance.getZoom() reads transform[2].
 const ZOOM_LEVELS = [1.0, 1.6] as const;
 const ZOOM_DURATION = 350;
-const FIT_OPTIONS = { padding: 0.12, duration: ZOOM_DURATION, minZoom: 0.1, maxZoom: 1.5 } as const;
+const FIT_OPTIONS = { padding: 0.02, duration: ZOOM_DURATION, minZoom: 0.1, maxZoom: 1.5 } as const;
 
 interface EpistemologyGraphProps {
     onViewportChange: (viewport: Viewport) => void;
@@ -112,7 +112,7 @@ export function EpistemologyGraph({ onViewportChange, snapToGrid = true, snapGri
                 snapToGrid={snapToGrid}
                 snapGrid={snapGrid}
                 fitView
-                fitViewOptions={{ padding: 0.12, minZoom: 0.1, maxZoom: 1.5 }}
+                fitViewOptions={{ padding: 0.02, minZoom: 0.1, maxZoom: 1.5 }}
                 selectionOnDrag
                 panOnScroll
                 selectionMode={SelectionMode.Partial}
