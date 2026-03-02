@@ -19,6 +19,7 @@ interface GraphState {
     excerpts: Excerpt[];
     sources: Source[];
     isDockOpen: boolean;
+    fitViewTrigger: number;  // increment to signal EpistemologyGraph to refit
 
     onNodesChange: (changes: NodeChange[]) => void;
     onEdgesChange: (changes: EdgeChange[]) => void;
@@ -30,6 +31,7 @@ interface GraphState {
     deleteNodes: (ids: string[]) => void;
     deleteEdges: (ids: string[]) => void;
     setDockOpen: (isOpen: boolean) => void;
+    triggerFitView: () => void;
     repositionNodes: (positions: Record<string, { x: number; y: number; sourcePosition?: Position; targetPosition?: Position }>) => void;
     assignExcerpt: (excerptId: string, nodeId: string) => void;
     dismissExcerpt: (excerptId: string) => void;
@@ -40,12 +42,16 @@ interface GraphState {
     fetchSources: () => Promise<void>;
 }
 
+
 export const useGraphStore = create<GraphState>((set, get) => ({
     nodes: [],
     edges: [],
     excerpts: [],
     sources: [],
     isDockOpen: false,
+    fitViewTrigger: 0,
+
+    triggerFitView: () => set(state => ({ fitViewTrigger: state.fitViewTrigger + 1 })),
 
     onNodesChange: (changes: NodeChange[]) => {
         set({ nodes: applyNodeChanges(changes, get().nodes) as AppNode[] });

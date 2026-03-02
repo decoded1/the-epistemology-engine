@@ -21,7 +21,8 @@ export type Suggestion = {
 
 
 export default function App() {
-  const { nodes, edges, sources, addNode, addEdges, updateNodeData, repositionNodes, isDockOpen, setDockOpen } = useGraphStore();
+  const { nodes, edges, sources, addNode, addEdges, updateNodeData, repositionNodes, triggerFitView, isDockOpen, setDockOpen } = useGraphStore();
+
   const fetchUnsortedExcerpts = useGraphStore(state => state.fetchUnsortedExcerpts);
   const fetchGraph = useGraphStore(state => state.fetchGraph);
   const fetchSources = useGraphStore(state => state.fetchSources);
@@ -309,8 +310,12 @@ export default function App() {
     addNode({ id, type: suggestion.nodeType, position: { x: newPos.x, y: newPos.y }, selected: false, data: nodeData } as any);
     addEdges([newEdge]);
 
-    // Reposition all existing nodes to match the recalculated layout.
-    setTimeout(() => repositionNodes(positions), 0);
+    // Reposition all existing nodes to match the recalculated layout, then refit.
+    setTimeout(() => {
+      repositionNodes(positions);
+      triggerFitView();
+    }, 0);
+
 
     setSuggestions(prev => prev.filter(s => s !== suggestion));
     setToast({ message: `Added "${suggestion.title}" · layout updated.`, type: 'success' });
@@ -431,7 +436,10 @@ export default function App() {
       dimensions
     );
     repositionNodes(positions);
+    // Trigger fitToUsableArea in EpistemologyGraph so the viewport matches page-load behaviour.
+    setTimeout(() => triggerFitView(), 50);
     setToast({ message: `Layout applied · ${nodes.length} nodes re-arranged.`, type: 'success' });
+
   };
 
   const { onNodesChange } = useGraphStore.getState();

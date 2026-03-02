@@ -1,4 +1,5 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
+
 import {
     ReactFlow,
     Background,
@@ -106,7 +107,9 @@ interface EpistemologyGraphProps {
 
 export function EpistemologyGraph({ onViewportChange, snapToGrid = true, snapGrid = SNAP }: EpistemologyGraphProps) {
     const { nodes, edges, onNodesChange, onEdgesChange, onConnect } = useGraphStore();
+    const fitViewTrigger = useGraphStore(state => state.fitViewTrigger);
     const { getViewport } = useReactFlow();
+
     const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
     // -1 = at overview, 0-N = ZOOM_LEVELS index
     const zoomStepRef = useRef<number>(-1);
@@ -114,6 +117,15 @@ export function EpistemologyGraph({ onViewportChange, snapToGrid = true, snapGri
     const handleMove = useCallback(() => {
         onViewportChange(getViewport());
     }, [getViewport, onViewportChange]);
+
+    // Re-fit whenever applyLayout or handleAcceptSuggestion increments fitViewTrigger.
+    useEffect(() => {
+        if (fitViewTrigger === 0) return;   // skip the initial value
+        const instance = rfInstanceRef.current;
+        if (!instance) return;
+        // Small delay so Zustand node positions have been painted before we measure.
+        setTimeout(() => fitToUsableArea(instance), 60);
+    }, [fitViewTrigger]);
 
     // onInit — fires when viewport is ready.
     // We delay 200ms to allow the DB-fetch to populate nodes before measuring.
