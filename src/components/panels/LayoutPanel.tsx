@@ -72,7 +72,7 @@ export function LayoutPanel({
     const [nodesep, setNodesep] = useState(120);
     const [ranksep, setRanksep] = useState(180);
     const [greedy, setGreedy] = useState(true);
-    const [semanticWeighting, setSemanticWeighting] = useState(true);
+    const [semanticWeighting, setSemanticWeighting] = useState(false);
 
     const handleApply = () => {
         onApply({ direction, ranker, align, nodesep, ranksep, acyclicer: greedy ? 'greedy' : undefined, semanticWeighting });

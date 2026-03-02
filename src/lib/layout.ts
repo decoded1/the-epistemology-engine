@@ -86,7 +86,7 @@ export function applyDagreLayout(
         nodeWidth = 300,
         nodeHeight = 120,
         center = { x: 0, y: 0 },
-        semanticWeighting = true,
+        semanticWeighting = false,
     } = options;
 
     const g = new Dagre.graphlib.Graph();
