@@ -51,7 +51,8 @@ export function LayoutPanel({
     const [ranksep, setRanksep] = useState(160);
     const panelRef = useRef<HTMLDivElement>(null);
 
-    // Close when clicking anywhere outside the panel (canvas, console, etc.)
+    // Close when clicking anywhere outside the panel (canvas, console, etc.).
+    // Uses capture phase (true) so it fires before ReactFlow's stopPropagation on the canvas.
     useEffect(() => {
         if (!isExpanded) return;
         const handler = (e: MouseEvent) => {
@@ -59,9 +60,10 @@ export function LayoutPanel({
                 setIsExpanded(false);
             }
         };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+        document.addEventListener('mousedown', handler, true);
+        return () => document.removeEventListener('mousedown', handler, true);
     }, [isExpanded]);
+
 
     const handleApply = () => onApply({ direction, nodesep, ranksep });
 
