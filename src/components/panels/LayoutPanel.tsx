@@ -10,14 +10,7 @@ interface LayoutPanelProps {
     onSnapGridChange: (v: [number, number]) => void;
 }
 
-type Ranker = NonNullable<LayoutOptions['ranker']>;
 type Direction = NonNullable<LayoutOptions['direction']>;
-
-const RANKER_INFO: Record<Ranker, string> = {
-    'network-simplex': 'Minimises edge lengths. Tight, logical flow.',
-    'tight-tree': 'Spreads siblings wider. More organic feel.',
-    'longest-path': 'Simple top-down ranking. Fast, but rough.',
-};
 
 const DIRECTION_LABELS: Record<Direction, string> = {
     LR: 'Left → Right',
@@ -28,30 +21,18 @@ const DIRECTION_LABELS: Record<Direction, string> = {
 
 const SNAP_SIZES = [10, 20, 40, 60] as const;
 
-// ── Toggle helper ──────────────────────────────────────────────────────────────
-function Toggle({ id, active, color, onClick }: {
-    id: string; active: boolean;
-    color: 'emerald' | 'blue' | 'amber';
-    onClick: () => void;
-}) {
-    const on: Record<string, string> = {
-        emerald: 'bg-accent-emerald-muted border-accent-emerald-border',
-        blue: 'bg-accent-blue-muted    border-accent-blue-border',
-        amber: 'bg-accent-amber-muted   border-accent-amber-border',
-    };
-    const dot: Record<string, string> = {
-        emerald: 'bg-accent-emerald',
-        blue: 'bg-accent-blue',
-        amber: 'bg-accent-amber',
-    };
+// ── Toggle ────────────────────────────────────────────────────────────────────
+function Toggle({ id, active, onClick }: { id: string; active: boolean; onClick: () => void }) {
     return (
         <button
             id={id}
             onClick={onClick}
-            className={`relative w-9 h-5 rounded-full border transition-all cursor-pointer ${active ? on[color] : 'bg-bg-elevated border-border-base'
+            className={`relative w-9 h-5 rounded-full border transition-all cursor-pointer ${active
+                    ? 'bg-accent-amber-muted border-accent-amber-border'
+                    : 'bg-bg-elevated border-border-base'
                 }`}
         >
-            <div className={`absolute top-[3px] w-[13px] h-[13px] rounded-full transition-all ${active ? `left-[18px] ${dot[color]}` : 'left-[3px] bg-text-dim'
+            <div className={`absolute top-[3px] w-[13px] h-[13px] rounded-full transition-all ${active ? 'left-[18px] bg-accent-amber' : 'left-[3px] bg-text-dim'
                 }`} />
         </button>
     );
@@ -64,19 +45,11 @@ export function LayoutPanel({
     snapGrid, onSnapGridChange,
 }: LayoutPanelProps) {
     const [isExpanded, setIsExpanded] = useState(false);
-
-    // Layout algorithm settings
     const [direction, setDirection] = useState<Direction>('TB');
-    const [ranker, setRanker] = useState<Ranker>('longest-path');
-    const [align, setAlign] = useState<'UL' | 'UR' | 'DL' | 'DR'>('UL');
-    const [nodesep, setNodesep] = useState(120);
-    const [ranksep, setRanksep] = useState(180);
-    const [greedy, setGreedy] = useState(true);
-    const [semanticWeighting, setSemanticWeighting] = useState(false);
+    const [nodesep, setNodesep] = useState(80);
+    const [ranksep, setRanksep] = useState(160);
 
-    const handleApply = () => {
-        onApply({ direction, ranker, align, nodesep, ranksep, acyclicer: greedy ? 'greedy' : undefined, semanticWeighting });
-    };
+    const handleApply = () => onApply({ direction, nodesep, ranksep });
 
     return (
         <div className="fixed z-50 animate-fade-in-up select-none" style={{ bottom: '24px', right: '24px' }}>
@@ -97,7 +70,7 @@ export function LayoutPanel({
             ) : (
 
                 /* ── Expanded panel ──────────────────────────────────────────── */
-                <div className="w-[280px] bg-bg-surface border border-border-subtle rounded-2xl shadow-[0_24px_80px_-12px_rgba(0,0,0,0.8),0_0_0_1px_rgba(0,0,0,0.2)] overflow-hidden">
+                <div className="w-[264px] bg-bg-surface border border-border-subtle rounded-2xl shadow-[0_24px_80px_-12px_rgba(0,0,0,0.8),0_0_0_1px_rgba(0,0,0,0.2)] overflow-hidden">
 
                     {/* Header */}
                     <div className="px-4 pt-3.5 pb-2.5 border-b border-border-base flex items-center justify-between">
@@ -114,11 +87,13 @@ export function LayoutPanel({
                     </div>
 
                     {/* Body */}
-                    <div className="p-4 space-y-5 max-h-[80vh] overflow-y-auto">
+                    <div className="p-4 space-y-5">
 
                         {/* Direction */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">Direction</label>
+                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">
+                                Direction
+                            </label>
                             <div className="grid grid-cols-2 gap-1">
                                 {(Object.keys(DIRECTION_LABELS) as Direction[]).map(d => (
                                     <button
@@ -126,8 +101,8 @@ export function LayoutPanel({
                                         id={`layout-dir-${d}`}
                                         onClick={() => setDirection(d)}
                                         className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-medium border transition-all cursor-pointer ${direction === d
-                                            ? 'bg-accent-blue-muted border-accent-blue-border text-accent-blue'
-                                            : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
+                                                ? 'bg-accent-blue-muted border-accent-blue-border text-accent-blue'
+                                                : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
                                             }`}
                                     >
                                         {DIRECTION_LABELS[d]}
@@ -136,55 +111,16 @@ export function LayoutPanel({
                             </div>
                         </div>
 
-                        {/* Ranker */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">Ranker Algorithm</label>
-                            <div className="space-y-1">
-                                {(Object.keys(RANKER_INFO) as Ranker[]).map(r => (
-                                    <button
-                                        key={r}
-                                        id={`layout-ranker-${r}`}
-                                        onClick={() => setRanker(r)}
-                                        className={`w-full text-left px-3 py-2 rounded-lg border transition-all cursor-pointer group ${ranker === r
-                                            ? 'bg-accent-violet-muted border-accent-violet-border'
-                                            : 'bg-bg-elevated border-border-base hover:border-border-focus'
-                                            }`}
-                                    >
-                                        <div className={`text-[10px] font-mono font-semibold ${ranker === r ? 'text-accent-violet' : 'text-text-secondary group-hover:text-text-primary'}`}>
-                                            {r}
-                                        </div>
-                                        <div className="text-[9px] mt-0.5 text-text-dim">{RANKER_INFO[r]}</div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Alignment */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">Node Alignment</label>
-                            <div className="grid grid-cols-4 gap-1">
-                                {(['UL', 'UR', 'DL', 'DR'] as const).map(a => (
-                                    <button
-                                        key={a}
-                                        id={`layout-align-${a}`}
-                                        onClick={() => setAlign(a)}
-                                        className={`py-1 text-[9px] font-mono font-semibold rounded-md border transition-all cursor-pointer ${align === a
-                                            ? 'bg-accent-violet-muted border-accent-violet-border text-accent-violet'
-                                            : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
-                                            }`}
-                                    >
-                                        {a}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
                         {/* Spacing */}
                         <div className="space-y-3">
-                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">Spacing</label>
+                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">
+                                Spacing
+                            </label>
+
+                            {/* nodesep */}
                             <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[10px] font-mono text-text-muted">nodesep</span>
+                                <div className="flex justify-between items-center mb-1.5">
+                                    <span className="text-[10px] font-mono text-text-muted">node gap</span>
                                     <span className="text-[10px] font-mono font-semibold text-text-secondary tabular-nums">{nodesep}px</span>
                                 </div>
                                 <input
@@ -196,49 +132,39 @@ export function LayoutPanel({
                                     style={{ background: `linear-gradient(to right, hsl(217,91%,60%) ${((nodesep - 20) / 180) * 100}%, hsl(0,0%,18%) ${((nodesep - 20) / 180) * 100}%)` }}
                                 />
                             </div>
+
+                            {/* ranksep */}
                             <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[10px] font-mono text-text-muted">ranksep</span>
+                                <div className="flex justify-between items-center mb-1.5">
+                                    <span className="text-[10px] font-mono text-text-muted">rank gap</span>
                                     <span className="text-[10px] font-mono font-semibold text-text-secondary tabular-nums">{ranksep}px</span>
                                 </div>
                                 <input
                                     id="layout-ranksep"
-                                    type="range" min={40} max={300} step={10}
+                                    type="range" min={40} max={320} step={10}
                                     value={ranksep}
                                     onChange={e => setRanksep(+e.target.value)}
                                     className="w-full h-[3px] rounded-full cursor-pointer"
-                                    style={{ background: `linear-gradient(to right, hsl(271,91%,65%) ${((ranksep - 40) / 260) * 100}%, hsl(0,0%,18%) ${((ranksep - 40) / 260) * 100}%)` }}
+                                    style={{ background: `linear-gradient(to right, hsl(271,91%,65%) ${((ranksep - 40) / 280) * 100}%, hsl(0,0%,18%) ${((ranksep - 40) / 280) * 100}%)` }}
                                 />
                             </div>
                         </div>
 
-                        {/* Toggle row: Greedy Acyclicer */}
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <div className="text-[10px] font-mono font-semibold text-text-muted">Greedy Acyclicer</div>
-                                <div className="text-[9px] text-text-dim mt-0.5">Handles cycles more elegantly</div>
-                            </div>
-                            <Toggle id="layout-greedy-toggle" active={greedy} color="emerald" onClick={() => setGreedy(g => !g)} />
-                        </div>
-
-                        {/* Toggle row: Semantic Weighting */}
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <div className="text-[10px] font-mono font-semibold text-text-muted">Semantic Weighting</div>
-                                <div className="text-[9px] text-text-dim mt-0.5">Pulls related nodes together; pushes contradictions apart</div>
-                            </div>
-                            <Toggle id="layout-semantic-toggle" active={semanticWeighting} color="blue" onClick={() => setSemanticWeighting(s => !s)} />
-                        </div>
-
                         {/* Snap to Grid */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">Snap to Grid</label>
+                            <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-dim">
+                                Snap to Grid
+                            </label>
                             <div className="flex items-center justify-between">
                                 <div>
                                     <div className="text-[10px] font-mono font-semibold text-text-muted">Enable snapping</div>
                                     <div className="text-[9px] text-text-dim mt-0.5">Nodes lock to grid on drag</div>
                                 </div>
-                                <Toggle id="layout-snap-toggle" active={snapToGrid} color="amber" onClick={() => onSnapToGridChange(!snapToGrid)} />
+                                <Toggle
+                                    id="layout-snap-toggle"
+                                    active={snapToGrid}
+                                    onClick={() => onSnapToGridChange(!snapToGrid)}
+                                />
                             </div>
 
                             {snapToGrid && (
@@ -249,8 +175,8 @@ export function LayoutPanel({
                                             id={`layout-snap-${size}`}
                                             onClick={() => onSnapGridChange([size, size])}
                                             className={`flex-1 py-1 text-[9px] font-mono font-semibold rounded-md border transition-all cursor-pointer ${snapGrid[0] === size
-                                                ? 'bg-accent-amber-muted border-accent-amber-border text-accent-amber'
-                                                : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
+                                                    ? 'bg-accent-amber-muted border-accent-amber-border text-accent-amber'
+                                                    : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
                                                 }`}
                                         >
                                             {size}px
@@ -260,7 +186,7 @@ export function LayoutPanel({
                             )}
                         </div>
 
-                    </div>{/* /Body */}
+                    </div>
 
                     {/* Apply button */}
                     <div className="px-4 pb-4">
