@@ -1,133 +1,128 @@
 import Dagre from '@dagrejs/dagre';
+import { Position } from '@xyflow/react';
 
 /**
- * Advanced Dagre Layout Options
+ * Layout Options
+ *
+ * Inspired by the XYFlow official Dagre example (xyflow-branching-tree reference):
+ * - Keep config minimal — just rankdir, nodesep, ranksep
+ * - Return sourcePosition/targetPosition per node so edges know which handles to use
+ * - Complex options (ranker, align, acyclicer) are available but shouldn't be defaults
  */
 export interface LayoutOptions {
     direction?: 'TB' | 'BT' | 'LR' | 'RL';
     ranker?: 'network-simplex' | 'tight-tree' | 'longest-path';
     acyclicer?: 'greedy' | undefined;
-    align?: 'UL' | 'UR' | 'DL' | 'DR'; // node alignment within rank
+    align?: 'UL' | 'UR' | 'DL' | 'DR';
     nodesep?: number;
     ranksep?: number;
     nodeWidth?: number;
     nodeHeight?: number;
     center?: { x: number; y: number };
-    /**
-     * Semantic Edge Weighting — "Relational Clustering"
-     *
-     * Discovered via research in @dagrejs/dagre/dist/dagre.d.ts + dagre.js:
-     *
-     *   EdgeConfig.weight  (default: 1)
-     *     Higher weight = Dagre prioritizes placing these nodes on adjacent ranks.
-     *     Strong edges "pull" their nodes together into a cluster.
-     *
-     *   EdgeConfig.minlen  (default: 1)
-     *     Higher minlen = *more* rank-steps must exist between source and target.
-     *     Semantically-opposing edges "push" their nodes apart.
-     *
-     * By mapping semantic relation types to weight/minlen pairs we get automatic
-     * relational clustering WITHOUT needing compound groups or external algorithms.
-     */
     semanticWeighting?: boolean;
 }
 
-// ── Semantic weight table ─────────────────────────────────────────────────────
-// Source: research in @dagrejs/dagre/dist/dagre.d.ts (EdgeConfig interface)
-// and dagre.js edgeDefaults (line 1977-1984) which set weight:1, minlen:1.
+// Semantic edge weight table (EdgeConfig.weight / minlen from dagre.d.ts)
 const EDGE_WEIGHTS: Record<string, { weight: number; minlen: number }> = {
-    prerequisite: { weight: 5, minlen: 1 }, // Very strong pull — dependencies must stay adjacent
-    supports: { weight: 3, minlen: 1 }, // Strong pull — evidence clusters near its claim
-    refines: { weight: 3, minlen: 1 }, // Strong pull — refinements stay near what they refine
-    extends: { weight: 2, minlen: 1 }, // Medium pull — extensions near their origin
-    contradicts: { weight: 1, minlen: 2 }, // Weak pull + pushes apart — opposing ideas stay separated
+    prerequisite: { weight: 5, minlen: 1 },
+    supports: { weight: 3, minlen: 1 },
+    refines: { weight: 3, minlen: 1 },
+    extends: { weight: 2, minlen: 1 },
+    contradicts: { weight: 1, minlen: 2 },
 };
 
-/**
- * Individual node dimensions for precise layout
- */
 export interface NodeDimensions {
     [nodeId: string]: { width: number; height: number };
 }
 
-/**
- * Edge with optional semantic relation type for weighting
- */
 export interface LayoutEdge {
     source: string;
     target: string;
     relationType?: string;
 }
 
+// What we return per node — matches the reference pattern
+export interface LayoutNodeResult {
+    x: number;
+    y: number;
+    sourcePosition: Position;
+    targetPosition: Position;
+    rank?: number;
+}
+
 /**
- * Shared layout utility using Dagre (Standardized Topological Engine)
+ * Dagre layout — returns positions AND sourcePosition/targetPosition per node.
  *
- * Key research findings applied:
- * 1. Individual node dimensions — prevents overlaps with expanded nodes.
- * 2. `network-simplex` ranker — minimises edge lengths for tighter hierarchy.
- * 3. `greedy` acyclicer — handles back-edges in epistemological cycles.
- * 4. Semantic edge weighting — pulls related nodes into relational clusters,
- *    pushes contradicting nodes apart. This is the closest thing to
- *    "relational clustering" that Dagre natively supports.
+ * Key insight from the xyflow-branching-tree reference (./src/App.tsx):
+ *   The reference sets sourcePosition/targetPosition on every node based on
+ *   direction, so edges know which handles to connect through. Without this,
+ *   edges pick arbitrary handles making the tree look messy even when the
+ *   underlying positions are correct.
+ *
+ *   TB: source=Bottom, target=Top   (edges flow downward)
+ *   LR: source=Right,  target=Left  (edges flow rightward)
  */
 export function applyDagreLayout(
     nodeIds: string[],
     edges: LayoutEdge[],
     options: LayoutOptions = {},
     dimensions: NodeDimensions = {}
-) {
+): Record<string, LayoutNodeResult> {
     const {
         direction = 'TB',
-        ranker = 'longest-path',
-        acyclicer = 'greedy',
-        align = 'UL',
-        nodesep = 120,
-        ranksep = 180,
+        nodesep = 80,
+        ranksep = 160,
         nodeWidth = 300,
         nodeHeight = 120,
         center = { x: 0, y: 0 },
         semanticWeighting = false,
+        // Advanced — only set if explicitly provided
+        ranker,
+        acyclicer,
+        align,
     } = options;
 
+    const isHorizontal = direction === 'LR' || direction === 'RL';
+
+    // Source/target positions derived from direction — mirrors the reference exactly
+    const sourcePosition: Position = isHorizontal ? Position.Right : Position.Bottom;
+    const targetPosition: Position = isHorizontal ? Position.Left : Position.Top;
+
+    // Fresh graph every call — no stale state
     const g = new Dagre.graphlib.Graph();
-
-    g.setGraph({
-        rankdir: direction,
-        ranker: ranker,
-        acyclicer: acyclicer,
-        align: align,
-        nodesep: nodesep,
-        ranksep: ranksep,
-        marginx: 40,
-        marginy: 40,
-    });
-
     g.setDefaultEdgeLabel(() => ({}));
 
-    // Set nodes with measured dimensions
+    // Only include advanced options when explicitly set
+    const graphConfig: Record<string, unknown> = {
+        rankdir: direction,
+        nodesep,
+        ranksep,
+        marginx: 40,
+        marginy: 40,
+    };
+    if (ranker) graphConfig.ranker = ranker;
+    if (acyclicer) graphConfig.acyclicer = acyclicer;
+    if (align) graphConfig.align = align;
+
+    g.setGraph(graphConfig);
+
     nodeIds.forEach(id => {
         const dim = dimensions[id] || { width: nodeWidth, height: nodeHeight };
         g.setNode(id, { width: dim.width, height: dim.height });
     });
 
-    // Set edges — with semantic weighting if enabled
     edges.forEach(edge => {
         const weights = semanticWeighting && edge.relationType
             ? (EDGE_WEIGHTS[edge.relationType] ?? { weight: 1, minlen: 1 })
             : { weight: 1, minlen: 1 };
-
-        g.setEdge(edge.source, edge.target, {
-            weight: weights.weight,
-            minlen: weights.minlen,
-        });
+        g.setEdge(edge.source, edge.target, { weight: weights.weight, minlen: weights.minlen });
     });
 
     Dagre.layout(g);
 
-    // Compute bounding box for centering
+    // Bounding box for centering
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
-
     nodeIds.forEach(id => {
         const n = g.node(id);
         minX = Math.min(minX, n.x - n.width / 2);
@@ -139,13 +134,15 @@ export function applyDagreLayout(
     const gW = maxX - minX;
     const gH = maxY - minY;
 
-    // Return ReactFlow-style top-left positions
-    const result: Record<string, { x: number; y: number; rank?: number }> = {};
+    const result: Record<string, LayoutNodeResult> = {};
     nodeIds.forEach(id => {
         const n = g.node(id);
         result[id] = {
+            // Top-left anchor (ReactFlow convention), centered on canvas
             x: center.x - gW / 2 + (n.x - minX) - n.width / 2,
             y: center.y - gH / 2 + (n.y - minY) - n.height / 2,
+            sourcePosition,
+            targetPosition,
             rank: (n as any).rank,
         };
     });
