@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
     ReactFlow,
     Background,
@@ -6,7 +6,8 @@ import {
     Viewport,
     SelectionMode,
     ConnectionMode,
-    useReactFlow
+    useReactFlow,
+    type ReactFlowInstance,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -45,10 +46,20 @@ interface EpistemologyGraphProps {
 export function EpistemologyGraph({ onViewportChange, snapToGrid = true, snapGrid = SNAP }: EpistemologyGraphProps) {
     const { nodes, edges, onNodesChange, onEdgesChange, onConnect } = useGraphStore();
     const { getViewport } = useReactFlow();
+    const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
 
     const handleMove = useCallback(() => {
         onViewportChange(getViewport());
     }, [getViewport, onViewportChange]);
+
+    // onInit fires when the viewport is ready (line 176-179, component-props.d.ts).
+    // We call fitView after a short delay so async-loaded DB nodes are included.
+    const handleInit = useCallback((instance: ReactFlowInstance) => {
+        rfInstanceRef.current = instance;
+        setTimeout(() => {
+            instance.fitView({ padding: 0.12, duration: 400, minZoom: 0.1, maxZoom: 1.5 });
+        }, 150);
+    }, []);
 
     return (
         <div className="w-full h-full" style={{ background: 'var(--color-bg-void)' }}>
@@ -61,9 +72,12 @@ export function EpistemologyGraph({ onViewportChange, snapToGrid = true, snapGri
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 onMove={handleMove}
+                onInit={handleInit}
                 connectionMode={ConnectionMode.Loose}
                 snapToGrid={snapToGrid}
                 snapGrid={snapGrid}
+                fitView
+                fitViewOptions={{ padding: 0.12, minZoom: 0.1, maxZoom: 1.5 }}
                 selectionOnDrag
                 panOnScroll
                 selectionMode={SelectionMode.Partial}
