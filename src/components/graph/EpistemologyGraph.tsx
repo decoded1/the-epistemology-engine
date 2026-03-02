@@ -41,7 +41,7 @@ const SNAP: [number, number] = [20, 20];
 // Levels: fitView overview → comfortable reading → focused detail → back to fitView
 // Discovered via node_modules: instance.zoomTo(level, { duration }) calls
 // panZoom.scaleTo() which animates. instance.getZoom() reads transform[2].
-const ZOOM_LEVELS = [0.65, 1.0, 1.6] as const;
+const ZOOM_LEVELS = [1.0, 1.6] as const;
 const ZOOM_DURATION = 350;
 const FIT_OPTIONS = { padding: 0.12, duration: ZOOM_DURATION, minZoom: 0.1, maxZoom: 1.5 } as const;
 
