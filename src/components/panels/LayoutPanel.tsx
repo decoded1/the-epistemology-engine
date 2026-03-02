@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LayoutGrid, ChevronDown, ChevronUp, Play } from 'lucide-react';
 import { LayoutOptions } from '../../lib/layout';
+
 
 interface LayoutPanelProps {
     onApply: (opts?: LayoutOptions) => void;
@@ -28,8 +29,8 @@ function Toggle({ id, active, onClick }: { id: string; active: boolean; onClick:
             id={id}
             onClick={onClick}
             className={`relative w-9 h-5 rounded-full border transition-all cursor-pointer ${active
-                    ? 'bg-accent-amber-muted border-accent-amber-border'
-                    : 'bg-bg-elevated border-border-base'
+                ? 'bg-accent-amber-muted border-accent-amber-border'
+                : 'bg-bg-elevated border-border-base'
                 }`}
         >
             <div className={`absolute top-[3px] w-[13px] h-[13px] rounded-full transition-all ${active ? 'left-[18px] bg-accent-amber' : 'left-[3px] bg-text-dim'
@@ -48,11 +49,25 @@ export function LayoutPanel({
     const [direction, setDirection] = useState<Direction>('TB');
     const [nodesep, setNodesep] = useState(80);
     const [ranksep, setRanksep] = useState(160);
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // Close when clicking anywhere outside the panel (canvas, console, etc.)
+    useEffect(() => {
+        if (!isExpanded) return;
+        const handler = (e: MouseEvent) => {
+            if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+                setIsExpanded(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [isExpanded]);
 
     const handleApply = () => onApply({ direction, nodesep, ranksep });
 
     return (
-        <div className="fixed z-50 animate-fade-in-up select-none" style={{ bottom: '24px', right: '24px' }}>
+        <div ref={panelRef} className="fixed z-50 animate-fade-in-up select-none" style={{ bottom: '10px', right: '10px' }}>
+
 
             {/* ── Collapsed pill ─────────────────────────────────────────────── */}
             {!isExpanded ? (
@@ -101,8 +116,8 @@ export function LayoutPanel({
                                         id={`layout-dir-${d}`}
                                         onClick={() => setDirection(d)}
                                         className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-medium border transition-all cursor-pointer ${direction === d
-                                                ? 'bg-accent-blue-muted border-accent-blue-border text-accent-blue'
-                                                : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
+                                            ? 'bg-accent-blue-muted border-accent-blue-border text-accent-blue'
+                                            : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
                                             }`}
                                     >
                                         {DIRECTION_LABELS[d]}
@@ -175,8 +190,8 @@ export function LayoutPanel({
                                             id={`layout-snap-${size}`}
                                             onClick={() => onSnapGridChange([size, size])}
                                             className={`flex-1 py-1 text-[9px] font-mono font-semibold rounded-md border transition-all cursor-pointer ${snapGrid[0] === size
-                                                    ? 'bg-accent-amber-muted border-accent-amber-border text-accent-amber'
-                                                    : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
+                                                ? 'bg-accent-amber-muted border-accent-amber-border text-accent-amber'
+                                                : 'bg-bg-elevated border-border-base text-text-dim hover:text-text-secondary hover:border-border-focus'
                                                 }`}
                                         >
                                             {size}px
