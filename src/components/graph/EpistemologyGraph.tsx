@@ -43,7 +43,20 @@ const SNAP: [number, number] = [20, 20];
 // panZoom.scaleTo() which animates. instance.getZoom() reads transform[2].
 const ZOOM_LEVELS = [1.0, 1.6] as const;
 const ZOOM_DURATION = 350;
-const FIT_OPTIONS = { padding: 0.02, duration: ZOOM_DURATION, minZoom: 0.1, maxZoom: 1.5 } as const;
+
+// Asymmetric padding accounts for the fixed console bar at the bottom.
+// Measured live via cx2: console bar top=832px on a 986px viewport,
+// height=131px, positioned at bottom:24px → occupies ~155px from bottom.
+// We give 160px bottom clearance so nodes never hide behind it.
+const FIT_PADDING = {
+    top: 40,
+    right: 40,
+    bottom: 160,   // console bar clearance
+    left: 40,
+} as const;
+
+const FIT_OPTIONS = { padding: FIT_PADDING, duration: ZOOM_DURATION, minZoom: 0.1, maxZoom: 1.5 } as const;
+
 
 interface EpistemologyGraphProps {
     onViewportChange: (viewport: Viewport) => void;
@@ -112,7 +125,7 @@ export function EpistemologyGraph({ onViewportChange, snapToGrid = true, snapGri
                 snapToGrid={snapToGrid}
                 snapGrid={snapGrid}
                 fitView
-                fitViewOptions={{ padding: 0.02, minZoom: 0.1, maxZoom: 1.5 }}
+                fitViewOptions={FIT_OPTIONS}
                 selectionOnDrag
                 panOnScroll
                 selectionMode={SelectionMode.Partial}
