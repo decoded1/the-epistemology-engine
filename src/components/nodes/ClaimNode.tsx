@@ -32,11 +32,11 @@ export function ClaimNode({ id, data, selected, dragging }: NodeProps<ClaimNodeT
             <Handle type="source" position={Position.Bottom} id="bottom" className={handleClass} />
             <Handle type="source" position={Position.Left} id="left" className={handleClass} />
 
-            <NodeHeader id={id} type="claim" title={data.title} description={data.description} onUpdate={(updates) => updateNodeData(id, updates)} />
+            <NodeHeader id={id} type="claim" title={data.title} description={data.description} docCount={data.supportingEvidence?.length || 0} mediaCount={data.counterEvidence?.length || 0} onUpdate={(updates) => updateNodeData(id, updates)} />
 
             <div className={`grid transition-[grid-template-rows] duration-200 ease-[cubic-bezier(0.25,0.8,0.25,1)] ${data.expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                 <div className="overflow-hidden">
-                    <div className="px-[14px] pb-[12px] flex flex-col gap-[14px] border-t border-border-base pt-[12px] drawer-content">
+                    <div className="px-[12px] pt-[10px] pb-[12px] flex flex-col gap-[14px] border-t border-border-base drawer-content">
 
                         <ConvictionMeter conviction={data.conviction ?? 50} onChange={(val) => updateNodeData(id, { conviction: val })} />
 
@@ -45,10 +45,10 @@ export function ClaimNode({ id, data, selected, dragging }: NodeProps<ClaimNodeT
 
                         {data.tags && data.tags.length > 0 && (
                             <div>
-                                <div className="text-[9px] font-semibold font-mono tracking-[0.12em] uppercase text-text-dim mb-[6px]">Tags</div>
+                                <div className="text-[10px] font-semibold font-mono tracking-[0.12em] uppercase text-text-dim mb-[8px]">Tags</div>
                                 <div className="flex flex-wrap gap-[4px]">
                                     {data.tags.map(tag => (
-                                        <span key={tag} className="text-[10px] font-mono font-medium px-[7px] py-[1px] rounded-full bg-bg-elevated border border-border-base text-text-muted transition-colors hover:border-border-focus hover:text-text-secondary cursor-default">
+                                        <span key={tag} className="text-[10px] font-mono font-medium px-[7px] py-[2px] rounded-full bg-bg-elevated border border-border-base text-text-muted transition-colors hover:border-border-focus hover:text-text-secondary cursor-default">
                                             {tag}
                                         </span>
                                     ))}
@@ -59,7 +59,7 @@ export function ClaimNode({ id, data, selected, dragging }: NodeProps<ClaimNodeT
                 </div>
             </div>
 
-            <NodeFooter expanded={!!data.expanded} onToggle={() => updateNodeData(id, { expanded: !data.expanded })} type="claim" referenceCount={totalReferences} />
+            <NodeFooter expanded={!!data.expanded} onToggle={() => updateNodeData(id, { expanded: !data.expanded })} />
         </div>
     );
 }

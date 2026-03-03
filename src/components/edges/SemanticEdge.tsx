@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     BaseEdge,
     EdgeLabelRenderer,
@@ -116,6 +116,8 @@ function getBestHandles(
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
+const RELATION_TYPES = Object.keys(TYPE_CONFIG) as (keyof typeof TYPE_CONFIG)[];
+
 export function SemanticEdge({
     id,
     source,
@@ -129,7 +131,16 @@ export function SemanticEdge({
     data,
 }: EdgeProps<AppEdge>) {
     const [isHovered, setIsHovered] = useState(false);
+    const [isPicking, setIsPicking] = useState(false);
     const deleteEdges = useGraphStore(state => state.deleteEdges);
+    const updateEdgeData = useGraphStore(state => state.updateEdgeData);
+
+    useEffect(() => {
+        if (!isPicking) return;
+        const close = () => setIsPicking(false);
+        document.addEventListener('mousedown', close);
+        return () => document.removeEventListener('mousedown', close);
+    }, [isPicking]);
 
     const sourceNode = useInternalNode(source);
     const targetNode = useInternalNode(target);
@@ -195,31 +206,83 @@ export function SemanticEdge({
                     onMouseEnter={() => setIsHovered(true)}
                     onMouseLeave={() => setIsHovered(false)}
                 >
-                    <div className="flex items-center gap-1 group/label">
+                    {isPicking ? (
+                        /* ── Relation picker: all types as chips ── */
                         <div
-                            className="px-2 py-[2px] rounded-lg text-[8px] font-mono font-bold uppercase tracking-widest backdrop-blur-sm transition-all"
+                            className="flex items-center gap-[3px] px-[5px] py-[4px] rounded-lg backdrop-blur-sm"
+                            style={{ backgroundColor: 'rgba(7,7,10,0.85)', border: '1px solid rgba(255,255,255,0.08)' }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                        >
+                            {RELATION_TYPES.map((type) => {
+                                const c = TYPE_CONFIG[type];
+                                const isActive = type === relation;
+                                return (
+                                    <button
+                                        key={type}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            updateEdgeData(id, { relationType: type });
+                                            setIsPicking(false);
+                                        }}
+                                        className="px-[6px] py-[2px] rounded text-[8px] font-mono font-bold uppercase tracking-widest transition-all cursor-pointer"
+                                        style={{
+                                            color: c.color,
+                                            backgroundColor: isActive ? c.bg : 'transparent',
+                                            border: `1px solid ${isActive ? c.border : 'transparent'}`,
+                                        }}
+                                        onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = c.bg; }}
+                                        onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+                                    >
+                                        {type}
+                                    </button>
+                                );
+                            })}
+                            {/* Close without changing */}
+                            <div className="w-px self-stretch mx-[2px]" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setIsPicking(false); }}
+                                className="flex items-center justify-center w-[16px] h-[16px] text-text-dim hover:text-text-muted transition-colors cursor-pointer"
+                            >
+                                <X size={9} />
+                            </button>
+                        </div>
+                    ) : (
+                        /* ── Normal split pill: label | X ── */
+                        <div
+                            className="flex items-center rounded-lg overflow-hidden backdrop-blur-sm transition-opacity"
                             style={{
-                                color: config.color,
-                                backgroundColor: config.bg,
                                 border: `1px solid ${config.border}`,
+                                backgroundColor: config.bg,
+                                opacity: isHovered ? 1 : 0.75,
                             }}
                         >
-                            {relation}
-                        </div>
+                            {/* Left: click to open picker */}
+                            <button
+                                className="px-2 py-[2px] text-[8px] font-mono font-bold uppercase tracking-widest cursor-pointer"
+                                style={{ color: config.color }}
+                                onClick={(e) => { e.stopPropagation(); setIsPicking(true); }}
+                            >
+                                {relation}
+                            </button>
 
-                        {/* Delete — expands on hover */}
-                        <div
-                            className={`flex items-center justify-center bg-bg-surface border border-border-base rounded transition-all cursor-pointer overflow-hidden
-                                ${isHovered ? 'w-[20px] h-[20px] opacity-100' : 'w-0 h-[20px] opacity-0 border-transparent'}
-                                hover:bg-accent-red-muted hover:border-accent-red-muted hover:text-accent-red text-text-dim`}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                deleteEdges([id]);
-                            }}
-                        >
-                            <X size={12} className="min-w-[12px]" />
+                            {/* Divider + delete — slide in on hover */}
+                            <div
+                                className="flex items-center overflow-hidden transition-[width,opacity] duration-150"
+                                style={{ width: isHovered ? 21 : 0, opacity: isHovered ? 1 : 0 }}
+                            >
+                                <div className="w-px self-stretch shrink-0" style={{ backgroundColor: config.border }} />
+                                <button
+                                    className="flex items-center justify-center w-[20px] py-[2px] text-text-dim hover:bg-accent-red-muted hover:text-accent-red transition-colors cursor-pointer shrink-0"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteEdges([id]);
+                                    }}
+                                >
+                                    <X size={9} />
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </EdgeLabelRenderer>
         </g>

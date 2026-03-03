@@ -13,7 +13,7 @@ export function ReferenceList({ title, references, type, onRemove }: ReferenceLi
 
     return (
         <div>
-            <div className="text-[9px] font-semibold font-mono tracking-[0.12em] uppercase text-text-dim mb-[6px]">
+            <div className="text-[10px] font-semibold font-mono tracking-[0.12em] uppercase text-text-dim mb-[8px]">
                 {title}
             </div>
             <div className="flex flex-col gap-[10px]">
@@ -22,7 +22,7 @@ export function ReferenceList({ title, references, type, onRemove }: ReferenceLi
                         <div className="flex justify-between items-center">
                             <span className="text-[12px] font-medium text-text-secondary">{ref.sourceName}</span>
                             <div className="flex items-center gap-[6px]">
-                                <span className="text-[10px] font-mono text-text-dim">
+                                <span className="text-[10px] font-mono text-text-secondary">
                                     {type === 'media' ? ref.timestamp : ref.location}
                                 </span>
                                 <button

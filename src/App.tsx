@@ -119,21 +119,20 @@ export default function App() {
   }, [uploadEpub]);
 
   useEffect(() => {
-    // Fetch initial state on load
-    fetchUnsortedExcerpts();
+    // Fetch initial state once on mount
     fetchGraph();
     fetchSources();
+    fetchUnsortedExcerpts();
+  }, []);
 
-    let interval: ReturnType<typeof setInterval>;
-    if (isProcessing) {
-      interval = setInterval(() => {
-        fetchUnsortedExcerpts();
-      }, 3000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isProcessing, fetchUnsortedExcerpts, fetchGraph, fetchSources]);
+  useEffect(() => {
+    // Poll for new excerpts while a source is being processed
+    if (!isProcessing) return;
+    const interval = setInterval(() => {
+      fetchUnsortedExcerpts();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [isProcessing, fetchUnsortedExcerpts]);
 
   const handleCommand = async (cmd: string, edgeType?: SemanticRelationType, scope?: Source | null) => {
     if (!cmd.trim()) return;

@@ -53,21 +53,21 @@ export function Toast({ message, type, onDismiss }: ToastProps) {
     }, [message, type, onDismiss]);
 
     return (
-        <div className="bg-bg-elevated/30 border-b border-border-base animate-in slide-in-from-top duration-300">
-            <div className="flex items-center justify-between px-4 py-2 border-b border-border-subtle bg-bg-surface/50">
-                <div className="flex items-center gap-1.5 text-[10px] font-mono font-medium text-accent-blue uppercase tracking-wider">
+        <div className="bg-bg-surface border border-border-subtle rounded-[12px] overflow-hidden shadow-[0_8px_40px_-8px_rgba(0,0,0,0.7),0_0_0_1px_rgba(0,0,0,0.2)] animate-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center justify-between px-[12px] py-[7px] border-b border-border-base">
+                <div className="flex items-center gap-[5px] font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-accent-blue">
                     <Sparkles size={10} />
                     Engine
                 </div>
                 <button
                     onClick={onDismiss}
-                    className="text-text-dim hover:text-text-primary transition-colors cursor-pointer"
+                    className="flex items-center justify-center w-[18px] h-[18px] rounded-[4px] text-text-dim hover:text-text-muted transition-colors cursor-pointer"
                 >
-                    <X size={12} />
+                    <X size={11} />
                 </button>
             </div>
-            <div className="px-4 py-3 max-h-[120px] overflow-y-auto">
-                <p className={`text-xs leading-relaxed ${type === 'error' ? 'text-accent-red' : 'text-text-secondary'}`}>
+            <div className="px-[14px] py-[9px] max-h-[120px] overflow-y-auto">
+                <p className={`text-[12px] leading-[1.6] ${type === 'error' ? 'text-accent-red' : 'text-text-secondary'}`}>
                     {displayedMessage}
                     {displayedMessage.length < message.length && type !== 'error' && (
                         <span className="inline-block w-1.5 h-3 ml-0.5 bg-accent-blue align-middle animate-pulse" />

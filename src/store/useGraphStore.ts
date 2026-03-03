@@ -28,6 +28,7 @@ interface GraphState {
     addNode: (node: AppNode) => void;
     addEdges: (edges: AppEdge[]) => void;
     updateNodeData: (id: string, data: Partial<AppNodeData>) => void;
+    updateEdgeData: (id: string, data: Partial<AppEdge['data']>) => void;
     deleteNodes: (ids: string[]) => void;
     deleteEdges: (ids: string[]) => void;
     setDockOpen: (isOpen: boolean) => void;
@@ -56,7 +57,12 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     onNodesChange: (changes: NodeChange[]) => {
         set({ nodes: applyNodeChanges(changes, get().nodes) as AppNode[] });
 
-        // Background Sync: If the user finished dragging a node, save its new position
+        // Sync removals to backend (backend also cleans up connected edges)
+        changes.filter(c => c.type === 'remove').forEach(c => {
+            fetch(`${API_URL}/graph/nodes/${(c as any).id}`, { method: 'DELETE' }).catch(console.error);
+        });
+
+        // Sync position drops to backend
         const positionDrops = changes.filter(
             (c): c is typeof c & { id: string; dragging: boolean } =>
                 c.type === 'position' && (c as any).dragging === false
@@ -78,6 +84,11 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
     onEdgesChange: (changes: EdgeChange[]) => {
         set({ edges: applyEdgeChanges(changes, get().edges) as AppEdge[] });
+
+        // Sync removals to backend
+        changes.filter(c => c.type === 'remove').forEach(c => {
+            fetch(`${API_URL}/graph/edges/${(c as any).id}`, { method: 'DELETE' }).catch(console.error);
+        });
     },
 
     onConnect: (connection: Connection) => {
@@ -134,6 +145,23 @@ export const useGraphStore = create<GraphState>((set, get) => ({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedNode)
+            }).catch(console.error);
+        }
+    },
+
+    updateEdgeData: (id: string, dataUpdate: Partial<AppEdge['data']>) => {
+        const newEdges = get().edges.map((edge) => {
+            if (edge.id === id) return { ...edge, data: { ...edge.data, ...dataUpdate } };
+            return edge;
+        });
+        set({ edges: newEdges });
+
+        const updatedEdge = newEdges.find(e => e.id === id);
+        if (updatedEdge) {
+            fetch(`${API_URL}/graph/edges`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedEdge)
             }).catch(console.error);
         }
     },

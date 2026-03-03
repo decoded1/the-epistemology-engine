@@ -26,7 +26,7 @@ export function SourceNode({ id, data, selected, dragging }: NodeProps<SourceNod
 
             <div className={`grid transition-[grid-template-rows] duration-200 ease-[cubic-bezier(0.25,0.8,0.25,1)] ${data.expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                 <div className="overflow-hidden">
-                    <div className="px-[14px] pb-[12px] flex flex-col gap-[14px] border-t border-border-base pt-[12px] drawer-content">
+                    <div className="px-[12px] pt-[10px] pb-[12px] flex flex-col gap-[14px] border-t border-border-base drawer-content">
 
                         {data.sourceMeta ? (
                             <>
@@ -72,7 +72,7 @@ export function SourceNode({ id, data, selected, dragging }: NodeProps<SourceNod
                 </div>
             </div>
 
-            <NodeFooter expanded={!!data.expanded} onToggle={() => updateNodeData(id, { expanded: !data.expanded })} type="source" isIndexed={data.sourceMeta?.indexed === 100} />
+            <NodeFooter expanded={!!data.expanded} onToggle={() => updateNodeData(id, { expanded: !data.expanded })} />
         </div>
     );
 }

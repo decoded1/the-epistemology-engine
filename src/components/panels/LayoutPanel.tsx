@@ -73,18 +73,28 @@ export function LayoutPanel({
 
             {/* ── Collapsed pill ─────────────────────────────────────────────── */}
             {!isExpanded ? (
-                <button
-                    id="layout-panel-toggle"
-                    onClick={() => setIsExpanded(true)}
-                    className="flex items-center gap-2 px-3 h-[32px] bg-bg-surface border border-border-subtle rounded-full cursor-pointer shadow-[0_4px_16px_rgba(0,0,0,0.4),0_0_0_1px_rgba(0,0,0,0.15)] hover:bg-bg-elevated hover:border-border-focus hover:-translate-y-[1px] transition-all group"
-
-                >
-                    <LayoutGrid size={13} className="text-text-dim group-hover:text-accent-blue transition-colors" />
-                    <span className="text-[11px] font-medium text-text-muted group-hover:text-text-secondary transition-colors">
-                        layout settings
-                    </span>
-                    <ChevronUp size={11} className="text-text-dim group-hover:text-text-muted transition-colors" />
-                </button>
+                <div className="flex items-center h-[32px] bg-bg-surface border border-border-subtle rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.4),0_0_0_1px_rgba(0,0,0,0.15)]">
+                    {/* Left: run layout */}
+                    <button
+                        id="layout-run-btn"
+                        onClick={handleApply}
+                        className="flex items-center justify-center w-[32px] h-full rounded-l-full cursor-pointer hover:bg-bg-elevated transition-colors group/run border-r border-border-base"
+                        title="Auto layout"
+                    >
+                        <LayoutGrid size={13} className="text-text-dim group-hover/run:text-accent-blue transition-colors" />
+                    </button>
+                    {/* Right: open settings */}
+                    <button
+                        id="layout-panel-toggle"
+                        onClick={() => setIsExpanded(true)}
+                        className="flex items-center gap-1.5 px-3 h-full rounded-r-full cursor-pointer hover:bg-bg-elevated hover:-translate-y-[1px] transition-all group/settings"
+                    >
+                        <span className="text-[11px] font-medium text-text-muted group-hover/settings:text-text-secondary transition-colors">
+                            layout settings
+                        </span>
+                        <ChevronUp size={11} className="text-text-dim group-hover/settings:text-text-muted transition-colors" />
+                    </button>
+                </div>
             ) : (
 
                 /* ── Expanded panel ──────────────────────────────────────────── */
